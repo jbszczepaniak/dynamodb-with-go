@@ -1,10 +1,11 @@
 # DynamoDB with Go #1 - Setup
 
 This post begins short series that aims to explore Go API used when interacting with DynamoDB database.
+Such combination of Go and DynamoDB is being used in serverless applications - specifically ones that run
+on the GoLD stack, where Go is the runtime for the AWS Lambda and DynamoDB is a database of choice.
 
-Such combination of Go and DynamoDB is being used in serverless applications - specifically ones that 
-run on the [GoLD stack](https://dev.to/prozz/introduction-to-the-gold-stack-5b66), where Go is the runtime
-for the AWS Lambda and DynamoDB is a database of choice.
+Make sure to read [Introduction to the GoLD stack](https://dev.to/prozz/introduction-to-the-gold-stack-5b66)
+by [@prozz](https://twitter.com/prozz).
 
 Throughout the series we are going to learn how to use the API in a convenient way. We are going to show
 some popular use cases, we are going to learn tips, tricks, and we are going to fight gotchas
