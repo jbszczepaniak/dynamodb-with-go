@@ -1,4 +1,4 @@
-# dynamodb-with-go
+# DynamoDB with Go
 
 Series of posts on how to use DynamoDB with Go SDK.
 
