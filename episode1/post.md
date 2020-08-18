@@ -4,10 +4,10 @@ This post begins short series that aims to explore Go API used when interacting 
 
 Such combination of Go and DynamoDB is being used in serverless applications - specifically ones that 
 run on the [GoLD stack](https://dev.to/prozz/introduction-to-the-gold-stack-5b66), where Go is the runtime
-for the AWS Lambda and DynamoDB is the choice for the database.
+for the AWS Lambda and DynamoDB is a database of choice.
 
 Throughout the series we are going to learn how to use the API in a convenient way. We are going to show
-some of the popular use cases, we are going to learn tips, tricks, and we are going to fight gotchas
+some popular use cases, we are going to learn tips, tricks, and we are going to fight gotchas
 of that API.
 
 ## Setting up the stage
@@ -49,7 +49,7 @@ and verify what happened. We already have environment up and running. Now we nee
 create the DynamoDB tables for us. I created dynamo `package` that provides `SetupTable` test helper
 that takes path to the CloudFormation template file and table name and creates that table for us.
 
-Let me show you test that demonstrated usage of the [`SetupTable`](../pkg/dynamo/setup_test.go).
+Let me show you test that demonstrates usage of the [`SetupTable`](../pkg/dynamo/setup_test.go).
 
 ```go
 ctx := context.Background()
@@ -59,7 +59,7 @@ db, cleanup := SetupTable(t, ctx, "PartitionKeyTable", "./testdata/template.yml"
 `PartitionKeyTable` is the name of the DynamoDB table that is defined in the [`template.yml`](../pkg/dynamo/testdata/template.yml)
 file. File itself follows format of CloudFormation templates.
 
-What we received in return is `db` - connection to the database, and `cleanup` method which needs to be called
+`SetupTable` returns `db` - connection to the database, and `cleanup` method which needs to be called
 after every test. You cannot have many tables with the same name in DynamoDB - we need to clean them up.
 
 ```go
@@ -77,6 +77,7 @@ talk about different types of keys in following episodes of the series.
 
 ```go
 cleanup()
+
 _, err = db.DescribeTableWithContext(ctx, &dynamodb.DescribeTableInput{
     TableName: aws.String("PartitionKeyTable"),
 })
