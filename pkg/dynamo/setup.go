@@ -3,6 +3,7 @@ package dynamo
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -19,9 +20,19 @@ func localDynamoDB(t *testing.T) *dynamodb.DynamoDB {
 	if err != nil {
 		t.Fatal("could not setup db connection")
 	}
-	return dynamodb.New(sess, &aws.Config{Endpoint: aws.String("http://localhost:8000")})
+	db := dynamodb.New(sess, &aws.Config{Endpoint: aws.String("http://localhost:8000")})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500 * time.Millisecond)
+	defer cancel()
+	_, err = db.ListTablesWithContext(ctx, nil)
+	if err != nil {
+		t.Fatal("make sure DynamoDB local runs on port :8000")
+	}
+	return db
 }
 
+// SetupTable creates table defined in the CloudFormation template file under `path`.
+// It returns connection to the DynamoDB and cleanup function, that needs to be run after tests.
 func SetupTable(t *testing.T, ctx context.Context, tableName, path string) (*dynamodb.DynamoDB, func()) {
 	db := localDynamoDB(t)
 	tmpl, err := goformation.Open(path)
