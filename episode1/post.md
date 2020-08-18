@@ -42,7 +42,7 @@ go test ./... -v
 The idea for this series is for you to always be able to run container with DynamoDB and execute
 test suite. Having working examples and being able to play with them is excellent opportunity to learn!
 
-## Creating DynamoDB Tables
+## Creating DynamoDB tables
 
 This series will be driven by tests. We are going to setup DynamoDB table, act on it in some ways
 and verify what happened. We already have environment up and running. Now we need to have code that will
