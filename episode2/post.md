@@ -2,7 +2,7 @@
 Today we are going to do the simplest thing you could imagine with the DynamoDB. First we are going to put something in, then we will take it out. It seems too easy and not worth reading about but bear with me for a moment.
 
 In the first episode of the series we successfully created environment in which we are going to play with DynamoDB. You can find code for this episode
-in [episode2](./episode2) directory.
+in [episode2](.) directory.
 
 ## Database layout
 
@@ -126,4 +126,4 @@ Let me recap what we did today:
 5. we unmarshaled an item back into struct.
 
 
-Make sure to clone the [repository](https://github.com/jbszczepaniak/dynamodb-with-go) and play with the code. Code related to this episode is in [episode2](https://github.com/jbszczepaniak/dynamodb-with-go/tree/master/episode2) directory in the repository.
+Make sure to clone the [repository](https://github.com/jbszczepaniak/dynamodb-with-go) and play with the code. Code related to this episode is in [episode2](.) directory in the repository.
