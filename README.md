@@ -21,5 +21,5 @@ docker run --rm -p 8000:8000 amazon/dynamodb-local
 
 2. Execute tests 
 ```
-go test
+go test ./...
 ```
