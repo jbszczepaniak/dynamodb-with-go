@@ -52,7 +52,7 @@ type Order struct {
   IsShipped    bool      `dynamodbav:"is_shipped"`
 }
 ```
-Let’s start with dynamo connection setup:
+Let’s start with DynamoDB connection setup:
 
 ```go
 func TestPutGet(t *testing.T) {
