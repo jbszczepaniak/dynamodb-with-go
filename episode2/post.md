@@ -39,7 +39,7 @@ First of all the table is called __OrdersTable__. Next, let’s focus on __Attri
 
 _Items_ are identified uniquely by their _keys_ - which are defined in the __KeySchema__ section. Key `id` is of type __HASH__ which is also referred to as the __Partition Key__. I won’t dive into types of keys at this time. For now, you need to know that Partition Key a.k.a. HASH Key uniquely identifies item in the DynamoDB table.
 
-## Why `price` and `is_shipped` attributes aren’t defined?
+### Why `price` and `is_shipped` attributes aren’t defined?
 In DynamoDB we need to define only the attributes that are part of the key. This is NoSQL world and we don’t need to specify each and every attribute of the item.
 
 ##  Let’s see some code already!
