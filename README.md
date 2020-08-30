@@ -7,7 +7,7 @@ Each episode has it's directory with text of the post and runnable code.
 ## Table of contents
 - [Episode #1 - Setup](./episode1/post.md)
 - [Episode #2 - Put & Get](./episode2/post.md)
-- [Episode #3 - ""](./episode3/post.md)
+- [Episode #3 - Build filesystem](./episode3/post.md)
 
 ## Prerequisites
 1. Golang (1.14 or higher) installed 
