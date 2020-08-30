@@ -5,43 +5,42 @@ After reading previous episode you could have an impression that DynamoDB is jus
 ## [Let's build filesystem](#lets-build-filesystem)
 
 Maybe it won't be full fledged filesystem, but I would like to model tree-like structure (width depth of 1, nested directories not allowed) where inside a directory there are many files. Moreover, I would like to query this filesystem in two ways:
-1. Give me single file from given directory
-2. Give me whole directory
+1. Give me single file from given directory,
+2. Give me whole directory.
 
 These are my __access patterns__. I want to model my table in a way that will allow me to perform such queries.
 
 ## [Composite Primary Key](#composite-primary-key)
 
-__Composite Primary Key__ consists of __Partition Key__ and __Sort Key__. Without going into details (AWS documentation covers this subject thoroughly) pair of partition key and sort key identifies an item in DynamoDB. Many items can have the same partition key, but each of them needs to have different sort key. If you are looking for an item in the table and you already know what is the partition key then sort key narrows down your search to the specific item so to speak.
+__Composite Primary Key__ consists of __Partition Key__ and __Sort Key__. Without going into details (AWS documentation covers this subject thoroughly), pair of Partition Key and Sort Key identifies an item in the DynamoDB. Many items can have the same Partition Key, but each of them needs to have different Sort Key. If you are looking for an item in the table and you already know what is the Partition Key then Sort Key narrows down your search to the specific item so to speak.
 
-If table has defined only partition key - each item is recognized uniquely by its partition key. If however table is defined with composite primary key each item is recognized by pair of partition key and sort key.
+If table has defined only Partition Key - each item is recognized uniquely by its Partition Key. If however table is defined with Composite Primary Key each item is recognized by pair of Partition and Sort keys.
 
 ## [Table definition](#table-definition)
 
-With all that theory in mind, let's figure out what should be partition key and what should be the sort key in our filesystem.
+With all that theory in mind, let's figure out what should be Partition Key and what should be the Sort Key in our filesystem.
 
-Each item in the table will represent single file. Additionally each file must point to its parent directory. As I mentioned sort key kind of narrows down the search. In this example, knowing already what directory we are looking for, we want to narrow down the search to single file.
+Each item in the table will represent single file. Additionally, each file must point to its parent directory. As I mentioned, Sort Key kind of narrows down the search. In this example, knowing already what directory we are looking for, we want to narrow down the search to single file.
 
-All that suggests that `directory` should be the partition key and `filename` the sort key. Let's express it as CloudFormation template inside `serverless.yaml`.
+All that suggests that `directory` should be the Partition Key and `filename` the Sort Key. Let's express it as CloudFormation template.
 
 ```yaml
-resources:
-  Resources:
-    FileSystemTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        AttributeDefinitions:
-          - AttributeName: directory
-            AttributeType: S
-          - AttributeName: filename
-            AttributeType: S
-        KeySchema:
-          - AttributeName: directory
-            KeyType: HASH
-          - AttributeName: filename
-            KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
-        TableName: FileSystemTable
+Resources:
+  FileSystemTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: directory
+          AttributeType: S
+        - AttributeName: filename
+          AttributeType: S
+      KeySchema:
+        - AttributeName: directory
+          KeyType: HASH
+        - AttributeName: filename
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      TableName: FileSystemTable
 
 ```  
 We need to define two attributes (`directory` and `filename`), because both of them are part of the __Composite Primary Key__. As you can see there is no sort key in the template. There is however `RANGE` key type. Just remember that:
