@@ -12,53 +12,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func StringAttr(val string) *dynamodb.AttributeValue {
-	return (&dynamodb.AttributeValue{}).SetS(val)
-}
-
-type Item struct {
-	Directory string `dynamodbav:"directory"`
-	Filename  string `dynamodbav:"filename"`
-	Size      string `dynamodbav:"size"`
-}
-
-func Insert(ctx context.Context, db *dynamodb.DynamoDB, tableName string) {
-	item1 := Item{Directory: "finances", Filename: "report2017.pdf", Size: "1MB"}
-	item2 := Item{Directory: "finances", Filename: "report2018.pdf", Size: "1MB"}
-	item3 := Item{Directory: "finances", Filename: "report2019.pdf", Size: "1MB"}
-	item4 := Item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}
-	item5 := Item{Directory: "fun", Filename: "game1", Size: "4GB"}
-
-	for _, item := range []Item{item1, item2, item3, item4, item5} {
-		attrs, _ := dynamodbattribute.MarshalMap(&item)
-		db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
-			TableName: aws.String(tableName),
-			Item:      attrs,
-		})
-	}
-}
-
 func TestSingleFileFromDirectory(t *testing.T) {
 	ctx := context.Background()
 	tableName := "FileSystemTable"
 	db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
 	defer cleanup()
 
-	Insert(ctx, db, tableName)
+	insert(ctx, db, tableName)
 
 	out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
-			"directory": StringAttr("finances"),
-			"filename":  StringAttr("report2020.pdf"),
+			"directory": {S: aws.String("finances")},
+			"filename":  {S: aws.String("report2020.pdf")},
 		},
 		TableName: aws.String(tableName),
 	})
 	assert.NoError(t, err)
 
-	var item Item
-	err = dynamodbattribute.UnmarshalMap(out.Item, &item)
+	var i item
+	err = dynamodbattribute.UnmarshalMap(out.Item, &i)
 	assert.NoError(t, err)
-	assert.Equal(t, Item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}, item)
+	assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}, i)
 }
 
 func TestAllFilesFromDirectory(t *testing.T) {
@@ -67,7 +41,7 @@ func TestAllFilesFromDirectory(t *testing.T) {
 	db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
 	defer cleanup()
 
-	Insert(ctx, db, tableName)
+	insert(ctx, db, tableName)
 
 	expr, err := expression.NewBuilder().
 		WithKeyCondition(
@@ -91,7 +65,7 @@ func TestAllReportsBefore2019(t *testing.T) {
 	db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
 	defer cleanup()
 
-	Insert(ctx, db, tableName)
+	insert(ctx, db, tableName)
 
 	expr, err := expression.NewBuilder().
 		WithKeyCondition(
@@ -108,5 +82,33 @@ func TestAllReportsBefore2019(t *testing.T) {
 		TableName:                 aws.String(tableName),
 	})
 	assert.NoError(t, err)
-	assert.Len(t, out.Items, 2)
+	var items []item
+	err = dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
+	assert.NoError(t, err)
+	if assert.Len(t, items, 2) {
+		assert.Equal(t, "report2017.pdf", items[0].Filename)
+		assert.Equal(t, "report2018.pdf", items[1].Filename)
+	}
+}
+
+type item struct {
+	Directory string `dynamodbav:"directory"`
+	Filename  string `dynamodbav:"filename"`
+	Size      string `dynamodbav:"size"`
+}
+
+func insert(ctx context.Context, db *dynamodb.DynamoDB, tableName string) {
+	item1 := item{Directory: "finances", Filename: "report2017.pdf", Size: "1MB"}
+	item2 := item{Directory: "finances", Filename: "report2018.pdf", Size: "1MB"}
+	item3 := item{Directory: "finances", Filename: "report2019.pdf", Size: "1MB"}
+	item4 := item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}
+	item5 := item{Directory: "fun", Filename: "game1", Size: "4GB"}
+
+	for _, item := range []item{item1, item2, item3, item4, item5} {
+		attrs, _ := dynamodbattribute.MarshalMap(&item)
+		db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+			TableName: aws.String(tableName),
+			Item:      attrs,
+		})
+	}
 }

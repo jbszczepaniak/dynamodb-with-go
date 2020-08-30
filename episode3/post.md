@@ -41,24 +41,22 @@ Resources:
           KeyType: RANGE
       BillingMode: PAY_PER_REQUEST
       TableName: FileSystemTable
-
-```  
-We need to define two attributes (`directory` and `filename`), because both of them are part of the __Composite Primary Key__. As you can see there is no sort key in the template. There is however `RANGE` key type. Just remember that:
-- `HASH` key type corresponds to _f_Partition Key__
+```
+We need to define two attributes (`directory` and `filename`), because both of them are part of the __Composite Primary Key__. As you can see there is no Sort Key in the template. There is however `RANGE` key type. Just remember that:
+- `HASH` key type corresponds to __Partition Key__
 - `RANGE` key type corresponds to  __Sort Key__
 
 ## [Moving on to the code](#code)
 
 This is how single item in the DynamoDB is going to look.
 ```go
-type Item struct {
+type item struct {
   Directory string `dynamodbav:"directory"`
   Filename  string `dynamodbav:"filename"`
   Size      string `dynamodbav:"size"`
 }
 ```
-
-I am going to insert couple of items to the database so that we have content we can query. At the end I want to have something like this in the table. (code that is doing that is omitted for brevity, you can look it up in `episode3/insert.go`)
+I am going to insert couple of items to the database so that we have content we can query. Code that is doing that is omitted for brevity, you can look it up [here](`episode3/queries_test.go`). At the end I want to have something like this in the table.
 
 | Directory | Filename       | Size |
 | ---       | ----           | ---- |
@@ -69,59 +67,35 @@ I am going to insert couple of items to the database so that we have content we 
 | fun       | game1          | 4GB  |
 
 ## [Query #1: Give me single file from given directory](#query1)
-
 We need to start with database setup.
-
 ```go
 func TestSingleFileFromDirectory(t *testing.T) {
-  ctx := context.Background()
-  db, table := testingdynamo.SetupTable(t, "FileSystem")
-  Insert(ctx, db, table)
+	ctx := context.Background()
+	tableName := "FileSystemTable"
+	db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
+	defer cleanup()
+	insert(ctx, db, tableName)
 ```
-
-With connection to DynamoDB in place and with testing data inserted we can move on to the query itself. I want to obtain single element from Dynamo, thus I am going to use `GetItemWithContext`.
-
+With connection to DynamoDB in place and with testing data inserted, we can move on to the query itself. I want to obtain single element from the DynamoDB, thus I am going to use `GetItemWithContext`.
 ```go
 out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
   Key: map[string]*dynamodb.AttributeValue{
-    "directory": dynamo.StringAttr("finances"),
-    "filename":  dynamo.StringAttr("report2020.pdf"),
-  },
-  TableName: aws.String(table),
-})
-assert.NoError(t, err)
-```
-
-Note that `Key` consists of two elements: `directory` which is partition key, and `filename` - sort key. The same query can look a little bit differently.
-
-```go
-out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-  Key: map[string]*dynamodb.AttributeValue{
-    "directory": {
-      S: aws.String("finances"),
-    },
-    "filename":  {
-      S: aws.String("report2020.pdf"),
-    },
+    "directory": {S: aws.String("finances")},
+    "filename":  {S: aws.String("report2020.pdf")},
   },
   TableName: aws.String(table),
 })
 ```
-
-I learned very recently that I don't need to construct by hand `dynamodb.AttributeValue`. I highly recommend to use `dynamo` package from kuna's `platform` module because ability  to use `dynamo.StringAttr` is just so convenient! Just compare both code snippet and judge by yoursef!
-
-Let's make sure that output of the query is really what we think it is:
-
+Note that `Key` consists of two elements: `directory` which is the Partition Key, and `filename` - the Sort Key. Let's make sure that output of the query is really what we think it is:
 ```go
-var item Item
-err = dynamodbattribute.UnmarshalMap(out.Item, &item)
+var i item
+err = dynamodbattribute.UnmarshalMap(out.Item, &i)
 assert.NoError(t, err)
-assert.Equal(t, Item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}, item)
+assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}, i)
 ```
-
 ## [Query #2: Give me whole directory](#query2)
 
-In this query we cannot really use `GetItemWithContext` because we want many items from Dynamo and to get single item we need to know whole composite primary key. Here we know only the partition key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
+In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get single item we need to know whole composite primary key. Here we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
 ```go
 expr, err := expression.NewBuilder().
     WithKeyCondition(
@@ -147,7 +121,7 @@ Expression object gives us easy access to condition, names, and values. As you c
 
 At the end, I am just checking whether we really have 4 items which are in finances directory.
 
-## [Bonus - query #3 Give me reports before 2019](#query3)
+## [Bonus - Query #3 Give me reports before 2019](#query3)
 
 It turns out that I constructed filenames in a way that makes them sortable. I figured - let's try to use it to our advantage and get all reports created before 2019.
 
@@ -163,11 +137,23 @@ Build()
 assert.NoError(t, err)
 ```
 
-We have 2 conditions that we combine with the AND clause. First one specifies what is our partition key, second one - sort key. `KeyLessThan` makes sure that we will only get `report2018.pdf` and `report2017.pdf`.
+We have 2 conditions that we combine with the AND clause. First one specifies what is our Partition Key, second one - Sort Key. `KeyLessThan` makes sure that we will only get `report2018.pdf` and `report2017.pdf`. Let's have a look at the results of the query.
+
+```go
+var items []item
+err = dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
+assert.NoError(t, err)
+if assert.Len(t, items, 2) {
+	assert.Equal(t, "report2017.pdf", items[0].Filename)
+	assert.Equal(t, "report2018.pdf", items[1].Filename)
+}
+```
+
+In the first query we used `dynamodbattribute.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew then that we will get single item. Here we know that there will be one item or more - thus we use `dynamodbattribute.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
+
+Note that I assert that first item is the report from 2017 and second one is from 2018. How am I so sure that items will go back from the DynamoDB in that order? If not told otherwise - DynamoDB will scan items from given Partition in ascending order. Since 2017 comes before 2018 - I know that first item should be from 2017.
 
 ## [Summary](#summary)
-I skipped few parts of the code so I am inviting you to clone this repository and play with it!
+We learned today how to use composite primary keys. Moreover we know how to take advantage of them with Go! That's great! You know what is even better? Playing with the code! Make sure to clone this repository and tinker with it!
 
-We learned today how to use composite primary keys. Moreover we know how to take advantage of them with Go!
-
-We will use expression builder a lot in future episodes so get used to it. It takes some time to build intuition around using expression builder API, but it's totally worth it! 
+Also we used expression builder to create the DynamoDB expression. Get used to them - we will use them a lot in the future episode! It takes some time to build intuition around using expression builder API, but it's totally worth it!
