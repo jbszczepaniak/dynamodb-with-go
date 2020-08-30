@@ -98,9 +98,9 @@ assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2
 In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get single item we need to know whole composite primary key. Here we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
 ```go
 expr, err := expression.NewBuilder().
-    WithKeyCondition(
-      expression.KeyEqual(expression.Key("directory"), expression.Value("finances"))).
-    Build()
+  WithKeyCondition(
+    expression.KeyEqual(expression.Key("directory"), expression.Value("finances"))).
+  Build()
 assert.NoError(t, err)
 
 out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
@@ -144,8 +144,8 @@ var items []item
 err = dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
 assert.NoError(t, err)
 if assert.Len(t, items, 2) {
-	assert.Equal(t, "report2017.pdf", items[0].Filename)
-	assert.Equal(t, "report2018.pdf", items[1].Filename)
+  assert.Equal(t, "report2017.pdf", items[0].Filename)
+  assert.Equal(t, "report2018.pdf", items[1].Filename)
 }
 ```
 
