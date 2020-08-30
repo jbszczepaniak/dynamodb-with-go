@@ -56,7 +56,7 @@ type item struct {
   Size      string `dynamodbav:"size"`
 }
 ```
-I am going to insert couple of items to the database so that we have content we can query. Code that is doing that is omitted for brevity, you can look it up [here](`./episode3/queries_test.go`). At the end I want to have something like this in the table.
+I am going to insert couple of items to the database so that we have content we can query. Code that is doing that is omitted for brevity, you can look it up [here](./episode3/queries_test.go). At the end I want to have something like this in the table.
 
 | Directory | Filename       | Size |
 | ---       | ----           | ---- |
