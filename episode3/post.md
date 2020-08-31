@@ -149,7 +149,7 @@ if assert.Len(t, items, 2) {
 }
 ```
 
-In the first query we used `dynamodbattribute.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew that we will get single item. Here we know that there will be one item or more - thus we use `dynamodbattribute.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
+In the first query we used `dynamodbattribute.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew we will get single item. Here we know that there will be one item or more - thus we use `dynamodbattribute.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
 
 Note that I assert that first item is the report from 2017 and second one is from 2018. How am I so sure that items will go back from the DynamoDB in that order? If not told otherwise - DynamoDB will scan items from given Partition in ascending order. Since 2017 comes before 2018 - I know that first item should be from 2017.
 
