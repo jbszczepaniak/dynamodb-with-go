@@ -6,7 +6,7 @@ After reading previous episode you could have an impression that DynamoDB is jus
 
 Maybe it won't be full fledged filesystem, but I would like to model tree-like structure (width depth of 1, nested directories not allowed) where inside a directory there are many files. Moreover, I would like to query this filesystem in two ways:
 1. Give me single file from given directory,
-2. Give me whole directory.
+2. Give me all files from given directory.
 
 These are my __access patterns__. I want to model my table in a way that will allow me to perform such queries.
 
@@ -70,11 +70,11 @@ I am going to insert couple of items to the database so that we have content we 
 We need to start with database setup.
 ```go
 func TestSingleFileFromDirectory(t *testing.T) {
-	ctx := context.Background()
-	tableName := "FileSystemTable"
-	db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
-	defer cleanup()
-	insert(ctx, db, tableName)
+  ctx := context.Background()
+  tableName := "FileSystemTable"
+  db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
+  defer cleanup()
+  insert(ctx, db, tableName)
 ```
 With connection to DynamoDB in place and with testing data inserted, we can move on to the query itself. I want to obtain single element from the DynamoDB, thus I am going to use `GetItemWithContext`.
 ```go
@@ -95,7 +95,7 @@ assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2
 ```
 ## [Query #2: Give me whole directory](#query2)
 
-In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get single item we need to know whole composite primary key. Here we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
+In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get single item we need to know whole composite primary key. Here we want to get all files from the directory so we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
 ```go
 expr, err := expression.NewBuilder().
   WithKeyCondition(
@@ -137,7 +137,7 @@ Build()
 assert.NoError(t, err)
 ```
 
-We have 2 conditions that we combine with the AND clause. First one specifies what is our Partition Key, second one - Sort Key. `KeyLessThan` makes sure that we will only get `report2018.pdf` and `report2017.pdf`. Let's have a look at the results of the query.
+We have two conditions that we combine with the AND clause. First one specifies what is our Partition Key, second one - Sort Key. `KeyLessThan` makes sure that we will only get `report2018.pdf` and `report2017.pdf`. Let's have a look at the results of the query.
 
 ```go
 var items []item
@@ -149,7 +149,7 @@ if assert.Len(t, items, 2) {
 }
 ```
 
-In the first query we used `dynamodbattribute.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew then that we will get single item. Here we know that there will be one item or more - thus we use `dynamodbattribute.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
+In the first query we used `dynamodbattribute.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew that we will get single item. Here we know that there will be one item or more - thus we use `dynamodbattribute.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
 
 Note that I assert that first item is the report from 2017 and second one is from 2018. How am I so sure that items will go back from the DynamoDB in that order? If not told otherwise - DynamoDB will scan items from given Partition in ascending order. Since 2017 comes before 2018 - I know that first item should be from 2017.
 
