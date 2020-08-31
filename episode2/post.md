@@ -4,7 +4,7 @@ Today we are going to do the simplest thing you could imagine with the DynamoDB.
 In the first episode of the series we successfully created environment in which we are going to play with DynamoDB. You can find code for this episode
 in [episode2](.) directory.
 
-## Database layout
+## [Database layout](#database-layout)
 
 With the environment ready to go we can start solving problems. Our _problem_ for today is to save and retrieve basic information about Order. Order has three properties.
 - `id` - string
@@ -42,7 +42,7 @@ _Items_ are identified uniquely by their _keys_ - which are defined in the __Key
 ### Why `price` and `is_shipped` attributes aren’t defined?
 In DynamoDB we need to define only the attributes that are part of the key. This is NoSQL world and we don’t need to specify each and every attribute of the item.
 
-##  Let’s see some code already!
+##  [Let’s see some code already!](#lets-see-code)
 There you go. This will be our order definition. Notice `dynamodbav` struct tag which specifies how to serialize a given struct field. By the way __av__ in dynamodbav stands for attribute value.
 
 ```go
@@ -90,7 +90,7 @@ One thing to notice is that `table` is wrapped in call to `aws.String` function.
 
 Notice that first return value from the SDK call is being ignored. We don't really need it here. Only thing we want to know at this point is that we didn't get any errors.
 
-## Get order back from DynamoDB
+## [Get order back from DynamoDB](#get-order-back)
 
 ```go
 out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
@@ -116,7 +116,7 @@ assert.NoError(t, err)
 assert.Equal(t, Order{ID: "12-34", Price: 22, IsShipped: false}, queried)
 ```
 
-## Summary
+## [Summary](#summary)
 Let me recap what we did today:
 
 1. we defined database layout,

@@ -11,7 +11,7 @@ Throughout the series we are going to learn how to use the API in a convenient w
 some popular use cases, we are going to learn tips, tricks, and we are going to fight gotchas
 of that API.
 
-## Setting up the stage
+## [Setting up the stage](#setting-up-stage)
 
 The goal of this very first post in the series is to setup environment for us. At the end of
 this post I would like to run simple API call that returns connection to the DynamoDB that I
@@ -43,7 +43,7 @@ go test ./... -v
 The idea for this series is for you to always be able to run container with DynamoDB and execute
 test suite. Having working examples and being able to play with them is excellent opportunity to learn!
 
-## Creating DynamoDB tables
+## [Creating DynamoDB tables](#creating-tables)
 
 This series will be driven by tests. We are going to setup DynamoDB table, act on it in some ways
 and verify what happened. We already have environment up and running. Now we need to have code that will
@@ -88,7 +88,7 @@ assert.True(t, ok && aerr.Code() == dynamodb.ErrCodeResourceNotFoundException)
 
 At the end of the test we run the `cleanup()` and verify that DynamoDB doesn't anything about it anymore.
 
-## Summary
+## [Summary](#summary)
 
 We've just prepared ourselves for the journey of exploring Go API for DynamoDB. We can create DynamoDB tables
 out of CloudFormation templates in our local instance of DynamoDB that runs inside Docker. We can now run tests against
