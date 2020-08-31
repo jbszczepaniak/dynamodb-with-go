@@ -12,17 +12,17 @@ These are my __access patterns__. I want to model my table in a way that will al
 
 ## [Composite Primary Key](#composite-primary-key)
 
-__Composite Primary Key__ consists of __Partition Key__ and __Sort Key__. Without going into details (AWS documentation covers this subject thoroughly), pair of Partition Key and Sort Key identifies an item in the DynamoDB. Many items can have the same Partition Key, but each of them needs to have different Sort Key. If you are looking for an item in the table and you already know what is the Partition Key then Sort Key narrows down your search to the specific item so to speak.
+__Composite Primary Key__ consists of __Partition Key__ and __Sort Key__. Without going into details (AWS documentation covers this subject thoroughly), a pair of Partition Key and Sort Key identifies an item in the DynamoDB. Many items can have the same Partition Key, but each of them needs to have a different Sort Key. If you are looking for an item in the table and you already know what is the Partition Key, Sort Key narrows down the search to the specific item.
 
-If table has defined only Partition Key - each item is recognized uniquely by its Partition Key. If however table is defined with Composite Primary Key each item is recognized by pair of Partition and Sort keys.
+If a table is defined only by a Partition Key; each item is recognized uniquely by its Partition Key. If, however, a table is defined with a Composite Primary Key; each item is recognized by pair of Partition and Sort keys.
 
 ## [Table definition](#table-definition)
 
-With all that theory in mind, let's figure out what should be Partition Key and what should be the Sort Key in our filesystem.
+With all that theory in mind, let's figure out what should be a Partition Key and a Sort Key in our filesystem.
 
-Each item in the table will represent single file. Additionally, each file must point to its parent directory. As I mentioned, Sort Key kind of narrows down the search. In this example, knowing already what directory we are looking for, we want to narrow down the search to single file.
+Each item in the table will represent a single file. Additionally, each file must point to its parent directory. As I mentioned, a Sort Key kind of narrows down the search. In this example, knowing already what directory we are looking for, we want to narrow down the search to a single file.
 
-All that suggests that `directory` should be the Partition Key and `filename` the Sort Key. Let's express it as CloudFormation template.
+All that suggests that `directory` should be the Partition Key and `filename` the Sort Key. Let's express it as a CloudFormation template.
 
 ```yaml
 Resources:
@@ -48,7 +48,7 @@ We need to define two attributes (`directory` and `filename`), because both of t
 
 ## [Moving on to the code](#code)
 
-This is how single item in the DynamoDB is going to look.
+This is how a single item in the DynamoDB is going to look.
 ```go
 type item struct {
   Directory string `dynamodbav:"directory"`
@@ -56,7 +56,7 @@ type item struct {
   Size      string `dynamodbav:"size"`
 }
 ```
-I am going to insert couple of items to the database so that we have content we can query. Code that is doing that is omitted for brevity, you can look it up [here](./queries_test.go). At the end I want to have something like this in the table.
+I am going to insert a couple of items to the database so that we have content to query. Code that is doing that is omitted for brevity, you can look it up [here](./queries_test.go). At the end I want to have following table:
 
 | Directory | Filename       | Size |
 | ---       | ----           | ---- |
@@ -67,7 +67,7 @@ I am going to insert couple of items to the database so that we have content we 
 | fun       | game1          | 4GB  |
 
 ## [Query #1: Give me single file from given directory](#query1)
-We need to start with database setup.
+We need to start with a database setup.
 ```go
 func TestSingleFileFromDirectory(t *testing.T) {
   ctx := context.Background()
@@ -76,7 +76,7 @@ func TestSingleFileFromDirectory(t *testing.T) {
   defer cleanup()
   insert(ctx, db, tableName)
 ```
-With connection to DynamoDB in place and with testing data inserted, we can move on to the query itself. I want to obtain single element from the DynamoDB, thus I am going to use `GetItemWithContext`.
+With a connection to DynamoDB in place and with the testing data inserted, we can move on to the query itself. I want to obtain a single element from the DynamoDB, thus I am going to use `GetItemWithContext`.
 ```go
 out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
   Key: map[string]*dynamodb.AttributeValue{
@@ -86,7 +86,7 @@ out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
   TableName: aws.String(table),
 })
 ```
-Note that `Key` consists of two elements: `directory` which is the Partition Key, and `filename` - the Sort Key. Let's make sure that output of the query is really what we think it is:
+Note that `Key` consists of two elements: `directory` (Partition Key) and `filename` (Sort Key). Let's make sure that output of the query is really what we think it is:
 ```go
 var i item
 err = dynamodbattribute.UnmarshalMap(out.Item, &i)
@@ -95,7 +95,7 @@ assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2
 ```
 ## [Query #2: Give me whole directory](#query2)
 
-In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get single item we need to know whole composite primary key. Here we want to get all files from the directory so we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
+In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get a single item we need to know whole composite primary key. Here we want to get all the files from the directory so we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
 ```go
 expr, err := expression.NewBuilder().
   WithKeyCondition(
@@ -113,19 +113,19 @@ assert.NoError(t, err)
 assert.Len(t, out.Items, 4)
 ```
 
-That is a lot of new things, so let me break it down for you. First part is where we construct key condition expression which describes what we really want to query. In our case this is just _"Give me all items whose directory attribute is equal to `finances`"_. I am using expression builder which simplifies construction of expressions by far.
+That is a lot of new things, so let me break it down for you. First part is where we construct key condition expression which describes what we really want to query. In our case this is just _"Give me all items whose directory attribute is equal to `finances`"_. I am using an expression builder which simplifies construction of expressions by far.
 
-In the next step we are using expression inside the query. We need to provide __condition__, __names__, and __values__. In this example condition is just equality comparison, names correspond to names of attributes and values correspond to... their values!
+In the next step we are using expression inside the query. We need to provide __condition__, __names__, and __values__. In this example, condition is just an equality comparison, where names correspond to names of attributes and values correspond to... their values!
 
-Expression object gives us easy access to condition, names, and values. As you can see I am using them as parameters to `QueryInput`.
+An expression object gives us easy access to condition, names, and values. As you can see I am using them as parameters to `QueryInput`.
 
 At the end, I am just checking whether we really have 4 items which are in finances directory.
 
 ## [Bonus - Query #3 Give me reports before 2019](#query3)
 
-It turns out that I constructed filenames in a way that makes them sortable. I figured - let's try to use it to our advantage and get all reports created before 2019.
+It turns out that I constructed filenames in a way that makes them sortable. I figured - let's try to use it to our advantage and get all the reports created before 2019.
 
-Query stays exactly the same. Only thing we need to change is key condition expression.
+Query stays exactly the same. The only thing we need to change is the key condition expression.
 
 ```go
 expr, err := expression.NewBuilder().
@@ -137,7 +137,7 @@ Build()
 assert.NoError(t, err)
 ```
 
-We have two conditions that we combine with the AND clause. First one specifies what is our Partition Key, second one - Sort Key. `KeyLessThan` makes sure that we will only get `report2018.pdf` and `report2017.pdf`. Let's have a look at the results of the query.
+We have two conditions that we combine with the AND clause. The first one specifies what is our Partition Key, second one, the Sort Key. `KeyLessThan` makes sure that we will only get `report2018.pdf` and `report2017.pdf`. Let's have a look at the results of the query.
 
 ```go
 var items []item
