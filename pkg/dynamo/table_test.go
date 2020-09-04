@@ -70,4 +70,136 @@ func TestTable(t *testing.T) {
 			TableName:              aws.String("CompositePrimaryKeyTable"),
 		}, input)
 	})
+
+	t.Run("table with single local secondary indexes", func(t *testing.T) {
+		tmpl, err := goformation.Open("./testdata/template.yml")
+		assert.NoError(t, err)
+
+		table, err := tmpl.GetAWSDynamoDBTableWithName("CompositePrimaryKeyAndLocalIndexTable")
+		assert.NoError(t, err)
+
+		input := dynamo.FromCloudFormationToCreateInput(*table)
+		assert.Equal(t, dynamodb.CreateTableInput{
+			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("lsi_sk"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			BillingMode:            aws.String("PAY_PER_REQUEST"),
+			KeySchema:              []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("pk"),
+					KeyType:       aws.String("HASH"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					KeyType:       aws.String("RANGE"),
+				},
+			},
+			LocalSecondaryIndexes: []*dynamodb.LocalSecondaryIndex{
+				{
+					IndexName: aws.String("MyIndex"),
+					KeySchema: []*dynamodb.KeySchemaElement{
+						{
+							AttributeName: aws.String("pk"),
+							KeyType:       aws.String("HASH"),
+						},
+						{
+							AttributeName: aws.String("lsi_sk"),
+							KeyType:       aws.String("RANGE"),
+						},
+					},
+					Projection: &dynamodb.Projection{
+						ProjectionType: aws.String("ALL"),
+					},
+				},
+			},
+			TableName:              aws.String("CompositePrimaryKeyAndLocalIndexTable"),
+		}, input)
+	})
+
+	t.Run("table with many local secondary indexes", func(t *testing.T) {
+		tmpl, err := goformation.Open("./testdata/template.yml")
+		assert.NoError(t, err)
+
+		table, err := tmpl.GetAWSDynamoDBTableWithName("CompositePrimaryKeyAndManyLocalIndexesTable")
+		assert.NoError(t, err)
+
+		input := dynamo.FromCloudFormationToCreateInput(*table)
+		assert.Equal(t, dynamodb.CreateTableInput{
+			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("lsi1_sk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("lsi2_sk"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			BillingMode:            aws.String("PAY_PER_REQUEST"),
+			KeySchema:              []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("pk"),
+					KeyType:       aws.String("HASH"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					KeyType:       aws.String("RANGE"),
+				},
+			},
+			LocalSecondaryIndexes: []*dynamodb.LocalSecondaryIndex{
+				{
+					IndexName: aws.String("MyIndex1"),
+					KeySchema: []*dynamodb.KeySchemaElement{
+						{
+							AttributeName: aws.String("pk"),
+							KeyType:       aws.String("HASH"),
+						},
+						{
+							AttributeName: aws.String("lsi1_sk"),
+							KeyType:       aws.String("RANGE"),
+						},
+					},
+					Projection: &dynamodb.Projection{
+						ProjectionType: aws.String("ALL"),
+					},
+				},
+				{
+					IndexName: aws.String("MyIndex2"),
+					KeySchema: []*dynamodb.KeySchemaElement{
+						{
+							AttributeName: aws.String("pk"),
+							KeyType:       aws.String("HASH"),
+						},
+						{
+							AttributeName: aws.String("lsi2_sk"),
+							KeyType:       aws.String("RANGE"),
+						},
+					},
+					Projection: &dynamodb.Projection{
+						ProjectionType: aws.String("ALL"),
+					},
+				},
+			},
+			TableName:              aws.String("CompositePrimaryKeyAndManyLocalIndexesTable"),
+		}, input)
+	})
 }

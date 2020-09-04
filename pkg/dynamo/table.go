@@ -17,11 +17,29 @@ func FromCloudFormationToCreateInput(t cloudformation.AWSDynamoDBTable) dynamodb
 		})
 	}
 	for _, key := range t.KeySchema {
-		input.KeySchema = append(input.KeySchema, &dynamodb.KeySchemaElement{
+		input.KeySchema = append(input.KeySchema,  &dynamodb.KeySchemaElement{
 			AttributeName: aws.String(key.AttributeName),
 			KeyType:       aws.String(key.KeyType),
 		})
 	}
+	for _, idx := range t.LocalSecondaryIndexes {
+		if idx.Projection.ProjectionType == "INCLUDE" {
+			panic("not implemented")
+		}
+		indexKeySchema := []*dynamodb.KeySchemaElement{}
+		for _, key := range idx.KeySchema {
+			indexKeySchema = append(indexKeySchema, &dynamodb.KeySchemaElement{
+				AttributeName: aws.String(key.AttributeName),
+				KeyType:       aws.String(key.KeyType),
+			})
+		}
+		input.LocalSecondaryIndexes = append(input.LocalSecondaryIndexes, &dynamodb.LocalSecondaryIndex{
+			IndexName:  aws.String(idx.IndexName),
+			KeySchema:  indexKeySchema,
+			Projection: &dynamodb.Projection{ProjectionType: aws.String(idx.Projection.ProjectionType)},
+		})
+	}
+
 	input.TableName = aws.String(t.TableName)
 	input.BillingMode = aws.String(t.BillingMode)
 	return input
