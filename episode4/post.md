@@ -12,7 +12,7 @@ If you recall we were able to query the filesystem in a following ways:
 - Give me a single file from a directory
 - Give me the whole directory
 
-Thanks to the fact that some of the files have year in their names we are able to get files older/younger than given date. [Look here how we did it](../episode3/post.md#bonus-query-3-give-me-reports-before-2019).
+Thanks to the fact that some of the files have year in their names we are able to get files older/younger than given date. [Look here how we did it](../episode3/post.md#query3).
 
 As we are testing this on staging, product person looks up our shoulder and sees that we are querying based on the creation time and she absolutely loves it. Except for one thing.
 
@@ -22,7 +22,7 @@ Now we have additional requirement. We need to be able to sort files inside dire
 
 This isn't SQL, we cannot simply use `WHERE` and `ORDER BY` clauses and query just anything without additional work. The tool for this job in DynamoDB is an **index**.
 
-## Indexes 
+## [Indexes](#indexes)
 
 Table in the DynamoDB can have only single pair of main Partition and Sort Keys. It's called Primary Key. They are important because they are entry point for queries. 
 
@@ -47,7 +47,7 @@ Our entry point here is the ability to get items from `photos` directory and sor
   
 DynamoDB has two types of indexes: Local Secondary Indexes (LSI) and Global Secondary Indexes (GSI). *Secondary* means that they are an addition to Primary Key.
 
-### Local Secondary Index
+### [Local Secondary Index](#LSI)
 LSI has the same Partition Key as Primary Key but different Sort Key. This allows us to sort items by additional attribute. In order to do that DynamoDB has to store additional - reorganized tree. Each sorting pattern needs to have it's own tree.
 
 Our additional access pattern was sorting by `created_at` attribute. This means additional tree sorted by `created_at`. Let's have a look at the image to warp our heads around that.
@@ -56,14 +56,14 @@ Our additional access pattern was sorting by `created_at` attribute. This means 
 
 LSI needs to have the same Partition Key as the table itself - this is why it's *local*. We can use the same partition to find both Primary Sort Key and Sort Key for the LSI. Important limitation of LSI is that it needs to be created when the table is created. There can be up to 5 LSIs on single table.
 
-### Global Secondary Index
+### [Global Secondary Index](#GSI)
 GSI is different. It allows to have arbitrary Partition Key and Sort Key for the same table. Let's construct an index where Partition Key is `size` and `filename` is Sort Key. This would allow to do query that would group photos by their size.
 
 ![gsi](./gsi.png)
 
 We no longer have the possibility to keep an index close to Primary Key because Partition Key on the index is completely different. We need to construct a new data structure. That's why this index is global - it lives somewhere else so to speak. GSIs are important because they allow to query the table in just any way you imagine. As opposed to LSIs, GSIs can be created anytime in the table lifetime. There can be up to 20 GSIs per table.
 
-## Database layout
+## [Database layout](#database-layout)
 
 We will concentrate on solving our business problem and we will create LSI that allows to sort by `created_at`.
 
@@ -110,7 +110,7 @@ type item struct {
 
 The `item` changed as well. It has new attribute - `CreatedAt`.
  
-## Query #1 - Photos taken from 2019
+## [Query #1 - Photos taken from 2019](#query1)
 
 Initial setup for all queries will be the same. It's just:
 
@@ -147,7 +147,7 @@ assert.Len(t, out.Items, 2)
 
 As you can see we need to specify that we are using the `ByCreatedAt` index. If we don't specify that - the DynamoDB will complain that key condition expression is missing its sort key (`filename`) and has other field instead (`created_at`). At the end I am just checking if result consists of 2 items.
 
-## Query #2 - Photos taken from 2017 to 2018
+## [Query #2 - Photos taken from 2017 to 2018](#query2)
 
 The query looks exactly the same as in first query (hence I'im skipping it), but the Key Condition Expression used to construct this query uses new operator which I wanted to show you.
 
@@ -163,7 +163,7 @@ expr, err := expression.NewBuilder().
 ``` 
 It's that simple - you just need to set lower and upper bounds for your search and that's all - you get photos from 2017 to 2018.
 
-## Query #3 - Newest photo
+## [Query #3 - Newest photo](#query3)
 
 Because an index stores items in the order - sorted by its Sort Key (of the index) - we can access data in a new way. We need to have the Key Condition Expression that will specify only the Partition Key - so that we are in photos directory.
 
@@ -197,7 +197,7 @@ err =  dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
 assert.Equal(t, 2020, items[0].CreatedAt.Year())
 ```
  
-## Summary
+## [Summary](#summary)
 This episode was about indexes. First we built an intuition on how they work and then we used Local Secondary Index to query by additional attribute.
 
 Indexes are esessential concept in the DynamoDB and we will see more of them when working with more complicated data models.
