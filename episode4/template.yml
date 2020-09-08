@@ -1,0 +1,27 @@
+Resources:
+  FileSystemTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: directory
+          AttributeType: S
+        - AttributeName: filename
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: directory
+          KeyType: HASH
+        - AttributeName: filename
+          KeyType: RANGE
+      LocalSecondaryIndexes:
+        - IndexName: ByCreatedAt
+          KeySchema:
+            - AttributeName: directory
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      TableName: FileSystemTable
