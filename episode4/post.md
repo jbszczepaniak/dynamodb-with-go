@@ -1,6 +1,6 @@
 # DynamoDB with Go #4
 
-Last time we looked at how Composite Primary Keys can improve our ability to query the DynamoDB. This time we'll focus on how indexes can help us even more with our access patterns.
+Last time we looked at how Composite Primary Keys can improve our ability to query the DynamoDB. This time we'll focus on how indices can help us even more with our access patterns.
 
 In episode #3 of DynamoDB we built an oversimplified filesystem model. Let me share with you a single item from that filesystem so that we are on the same page on how it looked.
 
@@ -22,7 +22,7 @@ Now we have additional requirement. We need to be able to sort files inside dire
 
 This isn't SQL, we cannot simply use `WHERE` and `ORDER BY` clauses and query just anything without additional work. The tool for this job in DynamoDB is an **index**.
 
-## [Indexes](#indexes)
+## [Indices](#indices)
 
 Table in the DynamoDB can have only single pair of main Partition and Sort Keys. It's called Primary Key. They are important because they are entry point for queries. 
 
@@ -43,9 +43,9 @@ Data that corresponds to image above is presented here:
   
 Our entry point here is the ability to get items from `photos` directory and sort them by filename. This is exactly reflected in the image because tree is constructed in a way that allow to sort only by `filename`. If we would like to have different entry point - we need to introduce an index.
   
-**Indexes enhance ability to query the table by introducing additional Partition Keys and Sort Keys.**
+**Indices enhance ability to query the table by introducing additional Partition Keys and Sort Keys.**
   
-DynamoDB has two types of indexes: Local Secondary Indexes (LSI) and Global Secondary Indexes (GSI). *Secondary* means that they are an addition to Primary Key.
+DynamoDB has two types of indices: Local Secondary Indices (LSI) and Global Secondary Indices (GSI). *Secondary* means that they are an addition to Primary Key.
 
 ### [Local Secondary Index](#LSI)
 LSI has the same Partition Key as Primary Key but different Sort Key. This allows us to sort items by additional attribute. In order to do that DynamoDB has to store additional - reorganized tree. Each sorting pattern needs to have it's own tree.
@@ -132,7 +132,7 @@ expr, err := expression.NewBuilder().
   Build()
 ```
 
-I need to provide the exact directory for the query. Additionally I am using `KeyGreaterThanEqual` in order to take advantage of the index. From perspective of this expression however the index is not visible. Hypothetically with table where `directory` is the Partition Key and `created_at` is the Sort Key it would be valid expression as well. The point here is that we cannot have many sort keys on the table - we need to use indexes for that - but it kind of works as additional sort key and it doesn't affect expression very much.
+I need to provide the exact directory for the query. Additionally I am using `KeyGreaterThanEqual` in order to take advantage of the index. From perspective of this expression however the index is not visible. Hypothetically with table where `directory` is the Partition Key and `created_at` is the Sort Key it would be valid expression as well. The point here is that we cannot have many sort keys on the table - we need to use indices for that - but it kind of works as additional sort key and it doesn't affect expression very much.
 
 ```go
 out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
@@ -198,8 +198,8 @@ assert.Equal(t, 2020, items[0].CreatedAt.Year())
 ```
  
 ## [Summary](#summary)
-This episode was about indexes. First we built an intuition on how they work and then we used Local Secondary Index to query by additional attribute.
+This episode was about indices. First we built an intuition on how they work and then we used Local Secondary Index to query by additional attribute.
 
-Indexes are esessential concept in the DynamoDB and we will see more of them when working with more complicated data models.
+Indices are esessential concept in the DynamoDB and we will see more of them when working with more complicated data models.
 
 Once again - I am inviting you to clone this repository and play with queries by yourself!
