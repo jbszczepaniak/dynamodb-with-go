@@ -8,7 +8,8 @@ Each episode has it's directory with text of the post and runnable code.
 - [Episode #1 - Setup](./episode1/post.md)
 - [Episode #2 - Put & Get](./episode2/post.md)
 - [Episode #3 - Composite Primary Keys](./episode3/post.md)
-- [Episode #4 - Indices](./episode4/post.md)
+- [Episode #4 - Indices ](./episode4/post.md)
+- [Episode #5 - Legacy IDs mapping ](./episode4/post.md)
 
 ## Prerequisites
 1. Golang (1.14 or higher) installed 
