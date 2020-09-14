@@ -32,9 +32,9 @@ Let's go here with the TDD approach. I will write a failing test first, then I w
 ```go
 func TestMapping(t *testing.T) {
   t.Run("generate new ID for each legacy ID", func(t *testing.T) {
-		ctx := context.Background()
-		tableName := "LegacyIDsTable"
-		db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
+    ctx := context.Background()
+    tableName := "LegacyIDsTable"
+    db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
     defer cleanup()
 
     mapper := NewMapper(db, tableName)
@@ -53,9 +53,9 @@ func TestMapping(t *testing.T) {
   })
 
   t.Run("do not regenerate ID for the same legacy ID", func(t *testing.T) {
-		ctx := context.Background()
-		tableName := "LegacyIDsTable"
-		db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
+    ctx := context.Background()
+    tableName := "LegacyIDsTable"
+    db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
     defer cleanup()
 
     mapper := NewMapper(db, tableName)
@@ -80,13 +80,13 @@ Let's take care of basic structs.
 
 ```go
 type Mapper struct {
-	db    dynamodbiface.DynamoDBAPI
-	table string
+  db    dynamodbiface.DynamoDBAPI
+  table string
 }
 
 type mapping struct {
-	OldID string `dynamodbav:"old_id"`
-	NewID string `dynamodbav:"new_id"`
+  OldID string `dynamodbav:"old_id"`
+  NewID string `dynamodbav:"new_id"`
 }
 ```
 
@@ -94,7 +94,7 @@ There is `Mapper` that holds dependencies to the DynamoDB and the `mapping` that
 
 ```go
 func NewMapper(client dynamodbiface.DynamoDBAPI, table string) *Mapper {
-	return &Mapper{db: client, table: table}
+  return &Mapper{db: client, table: table}
 }
 ```
 
