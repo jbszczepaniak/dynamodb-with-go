@@ -140,7 +140,7 @@ If however there is an error we need to check what type of error that is. If thi
 
 ```go
 aerr, ok := err.(awserr.Error)
-if ok && aerr.Code() == dynamodbErrCodeConditionalCheckFailedException {
+if ok && aerr.Code() != dynamodbErrCodeConditionalCheckFailedException {
   return "", err
 }
 ``` 
