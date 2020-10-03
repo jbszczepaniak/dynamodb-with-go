@@ -54,7 +54,7 @@ func (m *Mapper) Map(ctx context.Context, old string) (string, error) {
 		return idsMapping.NewID, nil
 	}
 	aerr, ok := err.(awserr.Error)
-	if ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+	if ok && aerr.Code() != dynamodb.ErrCodeConditionalCheckFailedException {
 		return "", err
 	}
 
