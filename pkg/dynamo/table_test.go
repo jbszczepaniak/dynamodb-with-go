@@ -202,4 +202,148 @@ func TestTable(t *testing.T) {
 			TableName:              aws.String("CompositePrimaryKeyAndManyLocalIndexesTable"),
 		}, input)
 	})
+
+	t.Run("table with single global secondary index", func(t *testing.T) {
+		tmpl, err := goformation.Open("./testdata/template.yml")
+		assert.NoError(t, err)
+
+		table, err := tmpl.GetAWSDynamoDBTableWithName("CompositePrimaryKeyAndSingleGlobalIndexTable")
+		assert.NoError(t, err)
+
+		input := dynamo.FromCloudFormationToCreateInput(*table)
+		assert.Equal(t, dynamodb.CreateTableInput{
+			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("gsi1_pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("gsi1_sk"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			BillingMode:            aws.String("PAY_PER_REQUEST"),
+			KeySchema:              []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("pk"),
+					KeyType:       aws.String("HASH"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					KeyType:       aws.String("RANGE"),
+				},
+			},
+			GlobalSecondaryIndexes: []*dynamodb.GlobalSecondaryIndex{
+				{
+					IndexName: aws.String("GlobalSecondaryIndex1"),
+					KeySchema: []*dynamodb.KeySchemaElement{
+						{
+							AttributeName: aws.String("gsi1_pk"),
+							KeyType:       aws.String("HASH"),
+						},
+						{
+							AttributeName: aws.String("gsi1_sk"),
+							KeyType:       aws.String("RANGE"),
+						},
+					},
+					Projection: &dynamodb.Projection{
+						ProjectionType: aws.String("ALL"),
+					},	
+				},
+			},
+			TableName:              aws.String("CompositePrimaryKeyAndSingleGlobalIndexTable"),
+		}, input)
+	})
+
+	t.Run("table with many global secondary indexes", func(t *testing.T) {
+		tmpl, err := goformation.Open("./testdata/template.yml")
+		assert.NoError(t, err)
+
+		table, err := tmpl.GetAWSDynamoDBTableWithName("CompositePrimaryKeyAndManyGlobalIndexTable")
+		assert.NoError(t, err)
+
+		input := dynamo.FromCloudFormationToCreateInput(*table)
+		assert.Equal(t, dynamodb.CreateTableInput{
+			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+				{
+					AttributeName: aws.String("pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("gsi1_pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("gsi1_sk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("gsi2_pk"),
+					AttributeType: aws.String("S"),
+				},
+				{
+					AttributeName: aws.String("gsi2_sk"),
+					AttributeType: aws.String("S"),
+				},
+			},
+			BillingMode:            aws.String("PAY_PER_REQUEST"),
+			KeySchema:              []*dynamodb.KeySchemaElement{
+				{
+					AttributeName: aws.String("pk"),
+					KeyType:       aws.String("HASH"),
+				},
+				{
+					AttributeName: aws.String("sk"),
+					KeyType:       aws.String("RANGE"),
+				},
+			},
+			GlobalSecondaryIndexes: []*dynamodb.GlobalSecondaryIndex{
+				{
+					IndexName: aws.String("GlobalSecondaryIndex1"),
+					KeySchema: []*dynamodb.KeySchemaElement{
+						{
+							AttributeName: aws.String("gsi1_pk"),
+							KeyType:       aws.String("HASH"),
+						},
+						{
+							AttributeName: aws.String("gsi1_sk"),
+							KeyType:       aws.String("RANGE"),
+						},
+					},
+					Projection: &dynamodb.Projection{
+						ProjectionType: aws.String("ALL"),
+					},	
+				},
+				{
+					IndexName: aws.String("GlobalSecondaryIndex2"),
+					KeySchema: []*dynamodb.KeySchemaElement{
+						{
+							AttributeName: aws.String("gsi2_pk"),
+							KeyType:       aws.String("HASH"),
+						},
+						{
+							AttributeName: aws.String("gsi2_sk"),
+							KeyType:       aws.String("RANGE"),
+						},
+					},
+					Projection: &dynamodb.Projection{
+						ProjectionType: aws.String("ALL"),
+					},	
+				},
+			},
+			TableName:              aws.String("CompositePrimaryKeyAndManyGlobalIndexTable"),
+		}, input)
+	})
 }
