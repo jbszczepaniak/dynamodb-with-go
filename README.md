@@ -12,6 +12,7 @@ Each episode has it's directory with text of the post and runnable code.
 - [Episode #5 - Legacy IDs mapping](./episode5/post.md)
 - [Episode #6 - Legacy IDs mapping with transactions](./episode6/post.md)
 - [Episode #7 - Modelling hierarchical data with Single Table Design](./episode7/post.md)
+- [Episode #8 - Implement hierarchical data with Single Table Design](./episode8/post.md)
 
 ## Prerequisites
 1. Golang (1.14 or higher) installed 

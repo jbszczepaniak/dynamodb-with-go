@@ -1,16 +1,17 @@
-# DynamoDB with Go #9
+# DynamoDB with Go #8
 
-This episode is all about implementation. If you didn't read episode 8th - please [do](../episode8/post.md) because we
-can't move forward without it. Assuming you've already read it let's express all the use cases we have in unit tests.
+This episode is all about implementation. If you didn't read episode 7th - please [do](../episode7/post.md) because we can't move forward without it. Assuming you've already read it, let's express all the use cases we have with help of unit tests.
 
-## Registering a sensor
+## [Registering a sensor](#registering-a-sensor)
 
-Registering sensor gives ability to record new readings of this sensor later on.
+Registering a sensor gives ability to record new readings of the sensor later on.
 
 ```go
-t.Run("Register sensor, get sensor", func(t *testing.T) {
-  db, table := testingdynamo.SetupTable(t, "Sensors")
-  manager := sensors.NewManager(db, table)
+t.Run("register sensor, get sensor", func(t *testing.T) {
+  tableName := "SensorsTable"
+  db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
+  defer cleanup()
+  manager := sensors.NewManager(db, tableName)
 
   err := manager.Register(ctx, sensor)
   assert.NoError(t, err)
@@ -21,21 +22,16 @@ t.Run("Register sensor, get sensor", func(t *testing.T) {
 })
 ``` 
 
-In order to verify that registration went well - sensor is retrieved after. You might wonder - isn't unit testing about
-testing single units? Isn't the registration __a unit__? Well, registration doesn't really matter if we cannot de anything with
-it, and a unit is single behavior. At the beginning of journey with testing my code it was a little strange for
-me. I was thinking - "but now such test has 2 reasons to break". Thinking in terms of above example - when registration
-fails and when retrieval fails. Later on, I came to the conclusion that there is superiority of such test over - for example
-checking what method was called underneath because it is better to test behavior than implementation. This is the key
-aspect of testing for me because change in implementation shouldn't break tests when behavior doesn't change. Now let's
-go back to the sensor business. Next thing behavior we want to cover is inability to register a sensor with the same ID twice.
+In order to verify that registration went well - sensor is retrieved afterwards. You might wonder - isn't unit testing about testing single units? Isn't the registration __a unit__? Well, registration doesn't really matter if we cannot do anything with it, and a unit is single behavior. At the beginning of the journey of testing my code it was a little strange for me. I was thinking - "but now such test has 2 reasons to break". Thinking in terms of above example - when registration fails and when retrieval fails. Later on, I came to the conclusion that there is superiority of such test over - for example checking what method was called underneath because it is better to test behavior than implementation. This is the key aspect of testing for me because change in implementation shouldn't break tests when behavior doesn't change. Now let's go back to the sensor business. Next behavior we want to cover is inability to register a sensor with the same ID twice.
 
-## Inability to register the same sensor twice
+## [Inability to register the same sensor twice](#register-only-once)
 
 ```go
-t.Run("Do not allow to register many times", func(t *testing.T) {
-  db, table := testingdynamo.SetupTable(t, "Sensors")
-  manager := sensors.NewManager(db, table)
+t.Run("do not allow to register many times", func(t *testing.T) {
+  tableName := "SensorsTable"
+  db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
+  defer cleanup()
+  manager := sensors.NewManager(db, tableName)
 
   err := manager.Register(ctx, sensor)
   assert.NoError(t, err)
@@ -45,18 +41,18 @@ t.Run("Do not allow to register many times", func(t *testing.T) {
 })
 ```
 
-When you try to register again you get slapped with an error. One thing I want to mention is `sensor` variable that
-I used in both above mentioned snippets. It's just exemplary sensor I've declared on top of the
-test suite. You can look it up in the code if you want to.
+When you try to register again you get slapped with an error. One thing I want to mention is `sensor` variable that I used in both above mentioned snippets. It's just exemplary sensor I've declared on top of the test suite. You can look it up in the repository if you want to.
 
-## Recording a sensor reading
+## [Recording a sensor reading](#recording-sensor-reading)
 
 Since we know how to register a sensor, let's record a reading of that sensor.
 
 ```go
 t.Run("save new reading", func(t *testing.T) {
-  db, table := testingdynamo.SetupTable(t, "Sensors")
-  manager := sensors.NewManager(db, table)
+  tableName := "SensorsTable"
+  db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
+  defer cleanup()
+  manager := sensors.NewManager(db, tableName)
 
   err := manager.Register(ctx, sensor)
   assert.NoError(t, err)
@@ -70,18 +66,18 @@ t.Run("save new reading", func(t *testing.T) {
 })
 ```
 
-A similar thing is going on here as well. After saving new reading I need to verify somehow that it worked. In order to do that
-I am using `LatestReadings` method that provides me with one latest reading - which hopefully should be the one that
-was just saved.
+After saving new reading I need to verify somehow that it worked. In order to do that I am using `LatestReadings` method that provides me with one latest reading - which hopefully should be the one that was just saved.
 
-## Retrieving sensor and its last readings
+## [Retrieving sensor and its last readings](#retrieve-sensor-with-readings)
 
 Let's explore more the API that we already've seen in previous test.
 
 ```go
 t.Run("get last readings and sensor", func(t *testing.T) {
-  db, table := testingdynamo.SetupTable(t, "Sensors")
-  manager := sensors.NewManager(db, table)
+  tableName := "SensorsTable"
+  db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
+  defer cleanup()
+  manager := sensors.NewManager(db, tableName)
 
   err := manager.Register(ctx, sensor)
 
@@ -105,12 +101,15 @@ t.Run("get last readings and sensor", func(t *testing.T) {
 
 The point of this test is to show that we are able to fetch a sensor and latest readings of this sensor at the same time.
 
-## Get sensors by location
+## [Get sensors by location](#get-sensors-by-location)
 
 ```go
 t.Run("get by sensors by location", func(t *testing.T) {
-  db, table := testingdynamo.SetupTable(t, "Sensors")
-  manager := sensors.NewManager(db, table)
+  tableName := "SensorsTable"
+  db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
+  defer cleanup()
+  manager := sensors.NewManager(db, tableName)
+
   err := manager.Register(ctx, sensors.Sensor{ID: "sensor-1", City: "Poznan", Building: "A", Floor: "1", Room: "2"})
   err = manager.Register(ctx, sensors.Sensor{ID: "sensor-2", City: "Poznan", Building: "A", Floor: "2", Room: "4"})
   err = manager.Register(ctx, sensors.Sensor{ID: "sensor-3", City: "Poznan", Building: "A", Floor: "2", Room: "5"})
@@ -123,21 +122,13 @@ t.Run("get by sensors by location", func(t *testing.T) {
 })
 ```
 
-This test is the reason why there are two versions of the code in this episode ([version 1](./v1) and [version 2](./v2)).
-They have the same test suite we've just described but each of them has different implementation. They differ because I 
-wanted yo show you different approaches of handling hierarchical data modeling. 
+This test is the reason why there are two versions of the code in this episode ([version 1](./v1) and [version 2](./v2)). Both versions have the same test suite we've just described but each of them has different implementation. They differ because I  wanted yo show you different approaches of handling hierarchical data modeling. 
 
-Before we jump into implementations I wanted to let you know that I am well aware of the fact that the test suite 
-is not complete. There are corner cases that aren't covered, but I hope you'll realize that this is rather DynamoDB modeling
-exercise rather than testing exercise. One more thing about testing. Both versions of the code have the same test suite
-because we are testing behavior - not implementation. I'm repeating myself, but I would like to emphasize the importance
-of such tests. I know that some times people are discouraged to test their code because whenever they change production code
-they need to fix a lot of tests too. It's not the case when testing the behavior. That's it. I used the word "behavior"
-for the last time in this episode. Moving on.
+Before we jump into implementations I wanted to let you know that I am well aware of the fact that the test suite  is not complete. There are corner cases that aren't covered, but I hope you'll realize that this is rather the DynamoDB modeling exercise rather than testing exercise. One more thing about testing. Both versions of the code have the same test suite because we are testing behavior - not implementation. I'm repeating myself, but I would like to emphasize the importance of such tests. I know that some times people are discouraged to test their code because whenever they change production code they need to fix a lot of tests too. It's not the case when testing the behavior. That's it. I used the word "behavior" for the last time in this episode. Moving on.
 
-## Implementation - version 1
+## [Implementation - version 1](#implementation-v1)
 
-I am going to show you first version of implementation, and then we are going to jump into the second one and 
+I am going to show you first version of implementation and then we are going to jump into the second one and 
 compare them. Let me remind you what really is the first version.
 
 | PK         | SK                    | Value | City   | Building  |  Floor |  Room  | Type | ID  |
@@ -149,23 +140,18 @@ compare them. Let me remind you what really is the first version.
 | SENSOR#S1  | SENSORINFO            |       | Poznań |  A        |   2    |  13    | Gas  |     |
 | CITY#Poznań| LOCATION#A#2#13       |       |        |           |        |        |      | S1  |
 
-Information about a sensor is broken down into two separate items with different Partition Keys. Additionally, every recording
-is an item that shares the same PK as main item describing the sensor.
+Information about a sensor is broken down into two separate items with different Partition Keys. Additionally, every recording is an item that shares the same PK as main item describing the sensor.
 
-### Registration
+### [Registration](#registration)
 
-As you can see in the layout, when registering we need to write two different items which means that we are going to need
-transactions. Let's jump into it.
+As you can see in the layout, when registering we need to write two different items which means that we are going to need transactions. Let's jump into it.
 
 ```go
 func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
   attrs, err := dynamodbattribute.MarshalMap(sensor.asItem())
 ```
 
-What we are doing here is transforming a sensor into something that we can put into the DynamoDB. Before we go any
-further, let's talk about `Sensor` type and `asItem` method. I differentiate here two different types: `Sensor` which is the public 
-representation of a sensor and additional type `sensorItem` that is concerned only with how sensor is stored in the DynamoDB.
-This type is unexported because it is only the implementation detail.
+What we are doing here is transforming a sensor into something that we can put into the DynamoDB. Before we go any further, let's talk about `Sensor` type and `asItem` method. I differentiate here two different types: `Sensor` which is the public  representation of a sensor and additional type `sensorItem` that is concerned only with how sensor is stored in the DynamoDB. This type is unexported because it is only the implementation detail.
 
 ```go
 type Sensor struct {
@@ -187,8 +173,7 @@ type sensorItem struct {
 }
 ```
 
-As you can see `Sensor` knows nothing about underlying implementation. The `asItem` method is a transformation that makes sure
-that PK and SK are set in a proper way.
+As you can see `Sensor` knows nothing about underlying implementation. The `asItem` method is a transformation that makes sure that PK and SK are set in a proper way.
 
 ```go
 func (s Sensor) asItem() sensorItem {
@@ -203,18 +188,13 @@ func (s Sensor) asItem() sensorItem {
 }
 ``` 
 
-Notice also that I named Partition Key - PK, and Sort Key - SK. This is because we are using Single Table Design and 
-different items have their own meaning of the PK and SK. In this example SK has value `SENSORINFO`. It is a constant
-value. I am setting this that way so that we are able to distinguish a sensor and its readings. Now, back 
-to the implementation. The sensor is in the format that DynamoDB will understand. Next thing we need to take care of is
-uniqueness. We cannot register the same sensor twice and in order to achieve that we need a condition.
+Notice also that I named Partition Key - PK, and Sort Key - SK. This is because we are using Single Table Design and  different items have their own meaning of the PK and SK. In this example SK has value `SENSORINFO`. It is a constant value. I am setting this that way so that we are able to distinguish a sensor and its readings. Now, back  to the implementation. The sensor is in the format that DynamoDB will understand. Next thing we need to take care of is uniqueness. We cannot register the same sensor twice and in order to achieve that we need a condition.
 
 ```go
 expr, err := expression.NewBuilder().WithCondition(expression.AttributeNotExists(expression.Name("pk"))).Build()
 ```  
 
-What it says is: "I am going to move further with the operation only if DynamoDB doesn't have an item with `pk`
-that I want to store in this operation".
+What it says is: "I am going to move further with the operation only if DynamoDB doesn't have an item with `pk` that I want to store in this operation".
 
 ```go
 _, err = s.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
@@ -232,9 +212,9 @@ _, err = s.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInp
     {
       Put: &dynamodb.Put{
         Item: map[string]*dynamodb.AttributeValue{
-          "pk": dynamo.StringAttr("CITY#" + sensor.City),
-          "sk": dynamo.StringAttr(fmt.Sprintf("LOCATION#%s#%s#%s", sensor.Building, sensor.Floor, sensor.Room)),
-          "id": dynamo.StringAttr(sensor.ID),
+            "pk": {S: aws.String("CITY#" + sensor.City)},
+            "sk": {S: aws.String(fmt.Sprintf("LOCATION#%s#%s#%s", sensor.Building, sensor.Floor, sensor.Room))},
+            "id": {S: aws.String(sensor.ID)},
         },
         TableName: aws.String(s.table),
       },
@@ -243,8 +223,7 @@ _, err = s.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInp
 })
 ```
 
-We want to put two items into the DynamoDB, sensor itself and the location. First Write Item has a condition that we defined
-and the other constructs the location. I decided to define it on the fly here because it's not important anywhere else.
+We want to put two items into the DynamoDB, sensor itself and the location. First Write Item has a condition that we defined and the other constructs the location. I decided to define it on the fly here because it's not important anywhere else.
 
 Let's have a look at the error handling.
 
@@ -259,27 +238,23 @@ if err != nil {
 return nil
 ```
 
-It needs to be handled explicitly because we need to verify whether transaction failed because of the failed condition
-or because something unexpected happened.
+It needs to be handled explicitly because we need to verify whether transaction failed because of the failed condition or because something unexpected happened.
 
-### Sensor retrieval
+### [Sensor retrieval](#sensor-retrieval)
 
-In order to retrieve sensor we need to use proper `SK` and `PK` which means we need to construct proper Composite Primary
-Key.
+In order to retrieve sensor we need to use proper `SK` and `PK` which means we need to construct proper Composite Primary Key.
+
 ```go
 map[string]*dynamodb.AttributeValue{
-  "pk": dynamo.StringAttr("SENSOR#" + id),  
-  "sk": dynamo.StringAttr("SENSORINFO"),
+  "pk": {S: aws.String("SENSOR#" + id)},
+  "sk": {S: aws.String("SENSORINFO")},
 }
 ```
-The ID needs to have the prefix, and SK needs to be the constant I choose to mark a sensor. If you want to see
-whole implementation of `Get` method please have a look [here](./v1/sensors.go). There is nothing interesting going on
-there - just simple data retrieval, so I am not repeating it here.
+The ID needs to have the prefix, and SK needs to be the constant I choose to mark a sensor. If you want to see whole implementation of `Get` method please have a look [here](./v1/sensors.go). There is nothing interesting going on there - just simple data retrieval, so I am not repeating it here.
 
-### Saving a reading
+### [Saving a reading](#saving-a-reding)
 
-Another fairly simple piece of code. It is just a PUT operation of a `Reading`. What is worth to talk about her is how
-data structure looks like.
+Another fairly simple piece of code. It is just a PUT operation of a `Reading`. What is worth to talk about her is how data structure looks like.
 
 ```go
 type Reading struct {
@@ -295,8 +270,7 @@ type readingItem struct {
 }
 ```
 
-I used the same pattern as for `Sensor`. There is `Reading` that makes sense in the domain, and there is `readingItem`
-that defines how implementation is going to look like.
+I used the same pattern as for `Sensor`. There is `Reading` that makes sense in the domain, and there is `readingItem` that defines how implementation is going to look like.
 
 ```go
 func (r Reading) asItem() readingItem {
@@ -307,12 +281,9 @@ func (r Reading) asItem() readingItem {
   }
 }
 ```
-This transformation makes sure that `PK` of an item begins with `SENSOR#` prefix. We need that because we want readings of
-the sensor and sensor itself to be in the same __Item Collection__. Item collection is collection of items that share
-the same Partition Key. We need that to be able to retrieve sensor and its latest readings with single query. Other thing
-that is going on here is formatting `SK` of an item in a way that will be sortable by time.
+This transformation makes sure that `PK` of an item begins with `SENSOR#` prefix. We need that because we want readings of the sensor and sensor itself to be in the same __Item Collection__. Item collection is collection of items that share the same Partition Key. We need that to be able to retrieve sensor and its latest readings with single query. Other thing that is going on here is formatting `SK` of an item in a way that will be sortable by time.
 
-### Retrieving the latest readings and the sensor
+### [Retrieving the latest readings and the sensor](#retrieving-latest)
 
 We will query two item types at the same time. We need some sort of condition.
 
@@ -323,9 +294,7 @@ expr, err := expression.NewBuilder().WithKeyCondition(expression.KeyAnd(
 )).Build()
 ```
 
-Let's read it. Attribute `pk` is the ID prefixed with `SENSOR#`. This makes sense - we need to fetch whole item collection. Let's
-keep reading. Attribute `sk` needs to be less than or equal than `SENSORINFO`. Wait, what? We wanted to fetch the sensor and
-it's readings. How on earth such condition is going to achieve that? Bare with me.
+Let's read it. Attribute `pk` is the ID prefixed with `SENSOR#`. This makes sense - we need to fetch whole item collection. Let's keep reading. Attribute `sk` needs to be less than or equal than `SENSORINFO`. Wait, what? We wanted to fetch the sensor and it's readings. How on earth such condition is going to achieve that? Bare with me.
 
 | PK         | SK                    |
 | ---        | ----                  |
@@ -335,11 +304,7 @@ it's readings. How on earth such condition is going to achieve that? Bare with m
 | SENSOR#S1  | READ#2020-03-01-12:33 |
 | SENSOR#S1  | SENSORINFO            |
 
-This is excerpt from the table that I showed you before but containing just Composite Primary Key. Items are sorted in
-ascending order by default. This means that readings are sorted from oldest to the newest, and after readings there
-is `SENSORINFO` because `S` comes after `R` in the alphabet. What we want to achieve is to read the data backwards starting
-from the item with `SENSORINFO` as `SK`. In order to read the data in this way we need to construct a query with
-parameter `ScanIndexForward` set to false.
+This is excerpt from the table that I showed you before but containing just Composite Primary Key. Items are sorted in ascending order by default. This means that readings are sorted from oldest to the newest, and after readings there is `SENSORINFO` because `S` comes after `R` in the alphabet. What we want to achieve is to read the data backwards starting from the item with `SENSORINFO` as `SK`. In order to read the data in this way we need to construct a query with parameter `ScanIndexForward` set to false.
 
 ```go
 out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
@@ -352,8 +317,7 @@ out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
 })
 ```
 
-Also, the limit is set to amount of last readings we want to retrieve increased by one so that we will retrieve information
-about the sensor as well.
+Also, the limit is set to amount of last readings we want to retrieve increased by one so that we will retrieve information about the sensor as well.
 
 What is going on at the end of the method is proper unmarshalling items into domain objects.
 ```go
@@ -369,22 +333,17 @@ for _, r := range ri {
 }
 return si.asSensor(), readings, nil
 ```
-We know for a fact that `Sensor` is first in the item collection, so it is unmarshalled as the `Sensor`. The rest of the items
-are treated as `Readings`.
+We know for a fact that `Sensor` is first in the item collection, so it is unmarshalled as the `Sensor`. The rest of the items are treated as `Readings`.
 
-### Get sensors by location
+### [Get sensors by location](#get-sensors-by-location)
 
-As you remember in this version of implementation - the location is stored as an additional item. 
-Method `GetSensors` accepts `Location` type that contains `City`, `Building`, `Floor` and `Room`.
-An item representing the location looks like this:
+As you remember in this version of implementation - the location is stored as an additional item. Method `GetSensors` accepts `Location` type that contains `City`, `Building`, `Floor` and `Room`. An item representing the location looks like this:
 
 | PK          | SK                | ID  |
 | ---         | ----              | --- |
 | CITY#Poznań | LOCATION#A#2#13   |  S1 |
 
-We need to build key condition that will point to `PK` which is just a `City` prefixed with `CITY#` and that has
-`SK` that begins with certain prefix. Depending on level of location precision - `SK` begins with shorter or longer prefix
-that specify from where we should get the sensors.
+We need to build key condition that will point to `PK` which is just a `City` prefixed with `CITY#` and that has `SK` that begins with certain prefix. Depending on level of location precision - `SK` begins with shorter or longer prefix that specify from where we should get the sensors.
 
 ```go
 expr, err := expression.NewBuilder().WithKeyCondition(expression.KeyAnd(
@@ -416,24 +375,21 @@ return ids, nil
 
 This is it. Complete code for first version of implementation is [here](./v1).
 
-## Implementation - version 2
+## [Implementation - version 2](#implementation-v2)
 
-Second version of the implementation varies a little. The difference lays in how location is stored. In first version
-queryable location was just additional item. Second version uses Global Secondary Index for that purpose.
+Second version of the implementation varies a little. The difference lays in how location is stored. In first version queryable location was just additional item. Second version uses Global Secondary Index for that purpose.
 
 | PK         | SK                    | City   | Building  |  Floor |  Room  | Type | GSI_PK | GSI_SK |
 | ---        | ----                  | ---    | ---       | ---    | ---    | ---  | ---    | ---    |
 | SENSOR#S1  | SENSORINFO            | Poznań |  A        |   2    |  13    | Gas  | Poznań | A#2#13 |
 
-Local Secondary Index cannot be used in this scenario because it would need to have the same Partition Key as Primary Key.
-Because we want to use different Partition Key - we need to use GSI.
+Local Secondary Index cannot be used in this scenario because it would need to have the same Partition Key as Primary Key. Because we want to use different Partition Key - we need to use GSI.
 
 I am going to show you only two methods because only they are different - registration of a sensor and retrieving sensors by the location.
 
-### Registration
+### [Registration](#registration-v2)
 
-`Sensor` type stays exactly the same because the domain sense of it doesn't change with implementation. However `sensorItem`
-is going to have two additional fields: `GSIPK` and `GSISK`.
+`Sensor` type stays exactly the same because the domain sense of it doesn't change with implementation. However `sensorItem` is going to have two additional fields: `GSIPK` and `GSISK`.
 
 ```go
 func (s Sensor) asItem() sensorItem {
@@ -449,11 +405,9 @@ func (s Sensor) asItem() sensorItem {
   }
 }
 ```
-As you can see `GSIPK` and `GSISK` look exactly the same as the additional `location` item in the first version of implementation.
-It's the same information but inside`sensorItem`.
+As you can see `GSIPK` and `GSISK` look exactly the same as the additional `location` item in the first version of implementation. It's the same information but inside`sensorItem`.
 
-Registration itself holds exactly the same condition as before - which is to make sure that we are not introducing duplicated
-sensors. What changed is instead of using transactions - we use simple PUT operation.
+Registration itself holds exactly the same condition as before - which is to make sure that we are not introducing duplicated sensors. What changed is instead of using transactions - we use simple PUT operation.
 
 ```go
 _, err = s.db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
@@ -466,10 +420,9 @@ _, err = s.db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
 })
 ``` 
 
-Frankly speaking registration just got very boring. We transform the `Sensor` into `sensorItem` and drop it into the
-DynamoDB with a condition.
+Frankly speaking registration just got very boring. We transform the `Sensor` into `sensorItem` and drop it into the DynamoDB with a condition.
 
-### Get sensors by location
+### [Get sensors by location](#get-sensors-by-location-v2)
 
 This method changed just slightly compared to the first version. Let's have a look at the key condition.
 ```go
@@ -478,8 +431,7 @@ expr, err := expression.NewBuilder().WithKeyCondition(expression.KeyAnd(
   expression.KeyBeginsWith(expression.Key("gsi_sk"), location.asPath()),
 )).Build() 
 ```
-It uses exactly the same mechanism as first version but instead of `pk` and `sk`, we use `gsi_pk` and `gsi_sk` when
-building key condition expression. What about the query? 
+It uses exactly the same mechanism as first version but instead of `pk` and `sk`, we use `gsi_pk` and `gsi_sk` when building key condition expression. What about the query? 
 ```go
 out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
   ExpressionAttributeNames:  expr.Names(),
@@ -489,8 +441,7 @@ out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
   IndexName:                 aws.String("ByLocation"),
 })
 ```
-It didn't change much either. There is one additional bit which is `IndexName` that we used. This index has `GSI_PK` and
-`GSI_SK` as its key.
+It didn't change much either. There is one additional bit which is `IndexName` that we used. This index has `GSI_PK` and `GSI_SK` as its key.
 
 This is the whole difference between two versions.
 
@@ -504,5 +455,4 @@ We covered a lot this time. Let me enumerate concepts that we used to make this 
 - Sparse Indexes
 - Transactions
 
-I hope you enjoyed this long journey. Also, I would like to invite you more than ever to fetch this repository and play
-with examples! 
+I hope you enjoyed this long journey. Also, I would like to invite you more than ever to fetch this repository and play with examples!

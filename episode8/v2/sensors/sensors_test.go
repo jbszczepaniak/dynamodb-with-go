@@ -22,7 +22,7 @@ func TestSensors(t *testing.T) {
 		Room:     "123",
 	}
 
-	t.Run("Register sensor, get sensor", func(t *testing.T) {
+	t.Run("register sensor, get sensor", func(t *testing.T) {
 		tableName := "SensorsTable"
 		db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
 		defer cleanup()
@@ -36,7 +36,7 @@ func TestSensors(t *testing.T) {
 		assert.Equal(t, sensor, returned)
 	})
 
-	t.Run("Do not allow to register many times", func(t *testing.T) {
+	t.Run("do not allow to register many times", func(t *testing.T) {
 		tableName := "SensorsTable"
 		db, cleanup := dynamo.SetupTable(t, ctx, tableName, "../template.yml")
 		defer cleanup()
