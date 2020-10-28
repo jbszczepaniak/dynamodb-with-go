@@ -207,7 +207,9 @@ We also need to create an item representing the latest state of the toggle.
 ```go
 latestAttrs, err := dynamodbattribute.MarshalMap(s.asLatestItem())
 ```
-It's similar to `asLogItem` but it sets `sk` to LATEST_SWITCH`. Next thing we do is yet another transaction.
+
+It's similar to `asLogItem` but it sets `sk` to `LATEST_SWITCH`. Next thing we do is yet another transaction.
+
 ```go
 _, err = t.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
   TransactItems: []*dynamodb.TransactWriteItem{
