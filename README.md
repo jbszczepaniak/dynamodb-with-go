@@ -15,6 +15,7 @@ Each episode has it's directory with text of the post and runnable code.
 - [Episode #8 - Implement hierarchical data with Single Table Design](./episode8/post.md)
 - [Episode #9 - Switching the toggle, toggling the switch](./episode9/post.md)
 - [Episode #10 - Gotcha with empty slices](./episode10/post.md)
+- [Episode #11 - Expressions API](./episode11/post.md)
 
 ## Prerequisites
 1. Golang (1.14 or higher) installed 
