@@ -203,5 +203,5 @@ _, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
 
 If I am being honest - I kind of like first version. It is concise, you immediately know what is going. The thing is that I think that conventions matter, and I'd rather stick with one way of doing things. Other thing is that even though `attribute_not_exists(#pk)` is cute - it is so simple to make mistake - and you don't have any autocompletion when writing it by hand.
 
-## Summary 
+## [Summary](#summary)
 I think that ability to write expressions by hand matters. I believe that this ability helps along the way when you're trying to figure out when your query breaks. Having said that - when you know what is what - I think in day to day work it is better to stick with expression API as it very convenient and less error prone than plain text expressions.
