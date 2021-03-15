@@ -5,10 +5,11 @@ import (
 	"dynamodb-with-go/pkg/dynamo"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,17 +21,17 @@ func TestSingleFileFromDirectory(t *testing.T) {
 
 	insert(ctx, db, tableName)
 
-	out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"directory": {S: aws.String("finances")},
-			"filename":  {S: aws.String("report2020.pdf")},
+	out, err := db.GetItem(ctx, &dynamodb.GetItemInput{
+		Key: map[string]types.AttributeValue{
+			"directory": &types.AttributeValueMemberS{Value: "finances"},
+			"filename":  &types.AttributeValueMemberS{Value: "report2020.pdf"},
 		},
 		TableName: aws.String(tableName),
 	})
 	assert.NoError(t, err)
 
 	var i item
-	err = dynamodbattribute.UnmarshalMap(out.Item, &i)
+	err = attributevalue.UnmarshalMap(out.Item, &i)
 	assert.NoError(t, err)
 	assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}, i)
 }
@@ -49,7 +50,7 @@ func TestAllFilesFromDirectory(t *testing.T) {
 		Build()
 	assert.NoError(t, err)
 
-	out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+	out, err := db.Query(ctx, &dynamodb.QueryInput{
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
@@ -75,7 +76,7 @@ func TestAllReportsBefore2019(t *testing.T) {
 		Build()
 	assert.NoError(t, err)
 
-	out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+	out, err := db.Query(ctx, &dynamodb.QueryInput{
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
@@ -83,7 +84,7 @@ func TestAllReportsBefore2019(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	var items []item
-	err = dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
+	err = attributevalue.UnmarshalListOfMaps(out.Items, &items)
 	assert.NoError(t, err)
 	if assert.Len(t, items, 2) {
 		assert.Equal(t, "report2017.pdf", items[0].Filename)
@@ -97,7 +98,7 @@ type item struct {
 	Size      string `dynamodbav:"size"`
 }
 
-func insert(ctx context.Context, db *dynamodb.DynamoDB, tableName string) {
+func insert(ctx context.Context, db *dynamodb.Client, tableName string) {
 	item1 := item{Directory: "finances", Filename: "report2017.pdf", Size: "1MB"}
 	item2 := item{Directory: "finances", Filename: "report2018.pdf", Size: "1MB"}
 	item3 := item{Directory: "finances", Filename: "report2019.pdf", Size: "1MB"}
@@ -105,8 +106,8 @@ func insert(ctx context.Context, db *dynamodb.DynamoDB, tableName string) {
 	item5 := item{Directory: "fun", Filename: "game1", Size: "4GB"}
 
 	for _, item := range []item{item1, item2, item3, item4, item5} {
-		attrs, _ := dynamodbattribute.MarshalMap(&item)
-		db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+		attrs, _ := attributevalue.MarshalMap(&item)
+		db.PutItem(ctx, &dynamodb.PutItemInput{
 			TableName: aws.String(tableName),
 			Item:      attrs,
 		})
