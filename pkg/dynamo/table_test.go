@@ -4,8 +4,9 @@ import (
 	"dynamodb-with-go/pkg/dynamo"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/awslabs/goformation"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,20 +21,20 @@ func TestTable(t *testing.T) {
 
 		input := dynamo.FromCloudFormationToCreateInput(*table)
 		assert.Equal(t, dynamodb.CreateTableInput{
-			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 			},
-			BillingMode:            aws.String("PAY_PER_REQUEST"),
-			KeySchema:              []*dynamodb.KeySchemaElement{
+			BillingMode: types.BillingModePayPerRequest,
+			KeySchema: []types.KeySchemaElement{
 				{
 					AttributeName: aws.String("pk"),
-					KeyType:       aws.String("HASH"),
+					KeyType:       types.KeyTypeHash,
 				},
 			},
-			TableName:              aws.String("PartitionKeyTable"),
+			TableName: aws.String("PartitionKeyTable"),
 		}, input)
 	})
 
@@ -46,28 +47,28 @@ func TestTable(t *testing.T) {
 
 		input := dynamo.FromCloudFormationToCreateInput(*table)
 		assert.Equal(t, dynamodb.CreateTableInput{
-			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 			},
-			BillingMode:            aws.String("PAY_PER_REQUEST"),
-			KeySchema:              []*dynamodb.KeySchemaElement{
+			BillingMode: types.BillingModePayPerRequest,
+			KeySchema: []types.KeySchemaElement{
 				{
 					AttributeName: aws.String("pk"),
-					KeyType:       aws.String("HASH"),
+					KeyType:       types.KeyTypeHash,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					KeyType:       aws.String("RANGE"),
+					KeyType:       types.KeyTypeRange,
 				},
 			},
-			TableName:              aws.String("CompositePrimaryKeyTable"),
+			TableName: aws.String("CompositePrimaryKeyTable"),
 		}, input)
 	})
 
@@ -80,50 +81,50 @@ func TestTable(t *testing.T) {
 
 		input := dynamo.FromCloudFormationToCreateInput(*table)
 		assert.Equal(t, dynamodb.CreateTableInput{
-			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("lsi_sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 			},
-			BillingMode:            aws.String("PAY_PER_REQUEST"),
-			KeySchema:              []*dynamodb.KeySchemaElement{
+			BillingMode: types.BillingModePayPerRequest,
+			KeySchema: []types.KeySchemaElement{
 				{
 					AttributeName: aws.String("pk"),
-					KeyType:       aws.String("HASH"),
+					KeyType:       types.KeyTypeHash,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					KeyType:       aws.String("RANGE"),
+					KeyType:       types.KeyTypeRange,
 				},
 			},
-			LocalSecondaryIndexes: []*dynamodb.LocalSecondaryIndex{
+			LocalSecondaryIndexes: []types.LocalSecondaryIndex{
 				{
 					IndexName: aws.String("MyIndex"),
-					KeySchema: []*dynamodb.KeySchemaElement{
+					KeySchema: []types.KeySchemaElement{
 						{
 							AttributeName: aws.String("pk"),
-							KeyType:       aws.String("HASH"),
+							KeyType:       types.KeyTypeHash,
 						},
 						{
 							AttributeName: aws.String("lsi_sk"),
-							KeyType:       aws.String("RANGE"),
+							KeyType:       types.KeyTypeRange,
 						},
 					},
-					Projection: &dynamodb.Projection{
-						ProjectionType: aws.String("ALL"),
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
 					},
 				},
 			},
-			TableName:              aws.String("CompositePrimaryKeyAndLocalIndexTable"),
+			TableName: aws.String("CompositePrimaryKeyAndLocalIndexTable"),
 		}, input)
 	})
 
@@ -136,70 +137,70 @@ func TestTable(t *testing.T) {
 
 		input := dynamo.FromCloudFormationToCreateInput(*table)
 		assert.Equal(t, dynamodb.CreateTableInput{
-			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("lsi1_sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("lsi2_sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 			},
-			BillingMode:            aws.String("PAY_PER_REQUEST"),
-			KeySchema:              []*dynamodb.KeySchemaElement{
+			BillingMode: types.BillingModePayPerRequest,
+			KeySchema: []types.KeySchemaElement{
 				{
 					AttributeName: aws.String("pk"),
-					KeyType:       aws.String("HASH"),
+					KeyType:       types.KeyTypeHash,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					KeyType:       aws.String("RANGE"),
+					KeyType:       types.KeyTypeRange,
 				},
 			},
-			LocalSecondaryIndexes: []*dynamodb.LocalSecondaryIndex{
+			LocalSecondaryIndexes: []types.LocalSecondaryIndex{
 				{
 					IndexName: aws.String("MyIndex1"),
-					KeySchema: []*dynamodb.KeySchemaElement{
+					KeySchema: []types.KeySchemaElement{
 						{
 							AttributeName: aws.String("pk"),
-							KeyType:       aws.String("HASH"),
+							KeyType:       types.KeyTypeHash,
 						},
 						{
 							AttributeName: aws.String("lsi1_sk"),
-							KeyType:       aws.String("RANGE"),
+							KeyType:       types.KeyTypeRange,
 						},
 					},
-					Projection: &dynamodb.Projection{
-						ProjectionType: aws.String("ALL"),
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
 					},
 				},
 				{
 					IndexName: aws.String("MyIndex2"),
-					KeySchema: []*dynamodb.KeySchemaElement{
+					KeySchema: []types.KeySchemaElement{
 						{
 							AttributeName: aws.String("pk"),
-							KeyType:       aws.String("HASH"),
+							KeyType:       types.KeyTypeHash,
 						},
 						{
 							AttributeName: aws.String("lsi2_sk"),
-							KeyType:       aws.String("RANGE"),
+							KeyType:       types.KeyTypeRange,
 						},
 					},
-					Projection: &dynamodb.Projection{
-						ProjectionType: aws.String("ALL"),
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
 					},
 				},
 			},
-			TableName:              aws.String("CompositePrimaryKeyAndManyLocalIndexesTable"),
+			TableName: aws.String("CompositePrimaryKeyAndManyLocalIndexesTable"),
 		}, input)
 	})
 
@@ -212,54 +213,54 @@ func TestTable(t *testing.T) {
 
 		input := dynamo.FromCloudFormationToCreateInput(*table)
 		assert.Equal(t, dynamodb.CreateTableInput{
-			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("gsi1_pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("gsi1_sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 			},
-			BillingMode:            aws.String("PAY_PER_REQUEST"),
-			KeySchema:              []*dynamodb.KeySchemaElement{
+			BillingMode: types.BillingModePayPerRequest,
+			KeySchema: []types.KeySchemaElement{
 				{
 					AttributeName: aws.String("pk"),
-					KeyType:       aws.String("HASH"),
+					KeyType:       types.KeyTypeHash,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					KeyType:       aws.String("RANGE"),
+					KeyType:       types.KeyTypeRange,
 				},
 			},
-			GlobalSecondaryIndexes: []*dynamodb.GlobalSecondaryIndex{
+			GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
 				{
 					IndexName: aws.String("GlobalSecondaryIndex1"),
-					KeySchema: []*dynamodb.KeySchemaElement{
+					KeySchema: []types.KeySchemaElement{
 						{
 							AttributeName: aws.String("gsi1_pk"),
-							KeyType:       aws.String("HASH"),
+							KeyType:       types.KeyTypeHash,
 						},
 						{
 							AttributeName: aws.String("gsi1_sk"),
-							KeyType:       aws.String("RANGE"),
+							KeyType:       types.KeyTypeRange,
 						},
 					},
-					Projection: &dynamodb.Projection{
-						ProjectionType: aws.String("ALL"),
-					},	
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
+					},
 				},
 			},
-			TableName:              aws.String("CompositePrimaryKeyAndSingleGlobalIndexTable"),
+			TableName: aws.String("CompositePrimaryKeyAndSingleGlobalIndexTable"),
 		}, input)
 	})
 
@@ -272,78 +273,78 @@ func TestTable(t *testing.T) {
 
 		input := dynamo.FromCloudFormationToCreateInput(*table)
 		assert.Equal(t, dynamodb.CreateTableInput{
-			AttributeDefinitions:   []*dynamodb.AttributeDefinition{
+			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("gsi1_pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("gsi1_sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("gsi2_pk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 				{
 					AttributeName: aws.String("gsi2_sk"),
-					AttributeType: aws.String("S"),
+					AttributeType: types.ScalarAttributeTypeS,
 				},
 			},
-			BillingMode:            aws.String("PAY_PER_REQUEST"),
-			KeySchema:              []*dynamodb.KeySchemaElement{
+			BillingMode: types.BillingModePayPerRequest,
+			KeySchema: []types.KeySchemaElement{
 				{
 					AttributeName: aws.String("pk"),
-					KeyType:       aws.String("HASH"),
+					KeyType:       types.KeyTypeHash,
 				},
 				{
 					AttributeName: aws.String("sk"),
-					KeyType:       aws.String("RANGE"),
+					KeyType:       types.KeyTypeRange,
 				},
 			},
-			GlobalSecondaryIndexes: []*dynamodb.GlobalSecondaryIndex{
+			GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
 				{
 					IndexName: aws.String("GlobalSecondaryIndex1"),
-					KeySchema: []*dynamodb.KeySchemaElement{
+					KeySchema: []types.KeySchemaElement{
 						{
 							AttributeName: aws.String("gsi1_pk"),
-							KeyType:       aws.String("HASH"),
+							KeyType:       types.KeyTypeHash,
 						},
 						{
 							AttributeName: aws.String("gsi1_sk"),
-							KeyType:       aws.String("RANGE"),
+							KeyType:       types.KeyTypeRange,
 						},
 					},
-					Projection: &dynamodb.Projection{
-						ProjectionType: aws.String("ALL"),
-					},	
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
+					},
 				},
 				{
 					IndexName: aws.String("GlobalSecondaryIndex2"),
-					KeySchema: []*dynamodb.KeySchemaElement{
+					KeySchema: []types.KeySchemaElement{
 						{
 							AttributeName: aws.String("gsi2_pk"),
-							KeyType:       aws.String("HASH"),
+							KeyType:       types.KeyTypeHash,
 						},
 						{
 							AttributeName: aws.String("gsi2_sk"),
-							KeyType:       aws.String("RANGE"),
+							KeyType:       types.KeyTypeRange,
 						},
 					},
-					Projection: &dynamodb.Projection{
-						ProjectionType: aws.String("ALL"),
-					},	
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
+					},
 				},
 			},
-			TableName:              aws.String("CompositePrimaryKeyAndManyGlobalIndexTable"),
+			TableName: aws.String("CompositePrimaryKeyAndManyGlobalIndexTable"),
 		}, input)
 	})
 }

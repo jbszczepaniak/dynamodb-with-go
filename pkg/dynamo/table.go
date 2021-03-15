@@ -1,8 +1,9 @@
 package dynamo
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/awslabs/goformation/cloudformation"
 )
 
@@ -11,53 +12,53 @@ import (
 func FromCloudFormationToCreateInput(t cloudformation.AWSDynamoDBTable) dynamodb.CreateTableInput {
 	var input dynamodb.CreateTableInput
 	for _, attrs := range t.AttributeDefinitions {
-		input.AttributeDefinitions = append(input.AttributeDefinitions, &dynamodb.AttributeDefinition{
+		input.AttributeDefinitions = append(input.AttributeDefinitions, types.AttributeDefinition{
 			AttributeName: aws.String(attrs.AttributeName),
-			AttributeType: aws.String(attrs.AttributeType),
+			AttributeType: types.ScalarAttributeType(attrs.AttributeType),
 		})
 	}
 	for _, key := range t.KeySchema {
-		input.KeySchema = append(input.KeySchema,  &dynamodb.KeySchemaElement{
+		input.KeySchema = append(input.KeySchema, types.KeySchemaElement{
 			AttributeName: aws.String(key.AttributeName),
-			KeyType:       aws.String(key.KeyType),
+			KeyType:       types.KeyType(key.KeyType),
 		})
 	}
 	for _, idx := range t.LocalSecondaryIndexes {
 		if idx.Projection.ProjectionType != "ALL" {
 			panic("not implemented")
 		}
-		indexKeySchema := []*dynamodb.KeySchemaElement{}
+		indexKeySchema := []types.KeySchemaElement{}
 		for _, key := range idx.KeySchema {
-			indexKeySchema = append(indexKeySchema, &dynamodb.KeySchemaElement{
+			indexKeySchema = append(indexKeySchema, types.KeySchemaElement{
 				AttributeName: aws.String(key.AttributeName),
-				KeyType:       aws.String(key.KeyType),
+				KeyType:       types.KeyType(key.KeyType),
 			})
 		}
-		input.LocalSecondaryIndexes = append(input.LocalSecondaryIndexes, &dynamodb.LocalSecondaryIndex{
+		input.LocalSecondaryIndexes = append(input.LocalSecondaryIndexes, types.LocalSecondaryIndex{
 			IndexName:  aws.String(idx.IndexName),
 			KeySchema:  indexKeySchema,
-			Projection: &dynamodb.Projection{ProjectionType: aws.String(idx.Projection.ProjectionType)},
+			Projection: &types.Projection{ProjectionType: types.ProjectionType(idx.Projection.ProjectionType)},
 		})
 	}
 	for _, idx := range t.GlobalSecondaryIndexes {
 		if idx.Projection.ProjectionType != "ALL" {
 			panic("not implemented")
 		}
-		indexKeySchema := []*dynamodb.KeySchemaElement{}
+		indexKeySchema := []types.KeySchemaElement{}
 		for _, key := range idx.KeySchema {
-			indexKeySchema = append(indexKeySchema, &dynamodb.KeySchemaElement{
+			indexKeySchema = append(indexKeySchema, types.KeySchemaElement{
 				AttributeName: aws.String(key.AttributeName),
-				KeyType:       aws.String(key.KeyType),
+				KeyType:       types.KeyType(key.KeyType),
 			})
 		}
-		input.GlobalSecondaryIndexes = append(input.GlobalSecondaryIndexes, &dynamodb.GlobalSecondaryIndex{
+		input.GlobalSecondaryIndexes = append(input.GlobalSecondaryIndexes, types.GlobalSecondaryIndex{
 			IndexName:  aws.String(idx.IndexName),
 			KeySchema:  indexKeySchema,
-			Projection: &dynamodb.Projection{ProjectionType: aws.String(idx.Projection.ProjectionType)},
+			Projection: &types.Projection{ProjectionType: types.ProjectionType(idx.Projection.ProjectionType)},
 		})
 	}
 
 	input.TableName = aws.String(t.TableName)
-	input.BillingMode = aws.String(t.BillingMode)
+	input.BillingMode = types.BillingMode(t.BillingMode)
 	return input
 }
