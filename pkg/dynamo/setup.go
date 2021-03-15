@@ -29,7 +29,7 @@ func localDynamoDB(t *testing.T) *dynamodb.Client {
 
 	db := dynamodb.NewFromConfig(cfg, dynamodb.WithEndpointResolver(EndpointResolver{}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
 	defer cancel()
 	_, err = db.ListTables(ctx, nil)
 	if err != nil {
