@@ -1,4 +1,4 @@
-package episode10
+package episode9
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func TestToggle(t *testing.T) {
 		err := toggle.Save(ctx, Switch{ID: "123", State: true, CreatedAt: now})
 		assert.NoError(t, err)
 
-		err = toggle.Save(ctx, Switch{ID: "123", State: false, CreatedAt: now.Add(- 10 * time.Second)})
+		err = toggle.Save(ctx, Switch{ID: "123", State: false, CreatedAt: now.Add(-10 * time.Second)})
 		assert.NoError(t, err)
 
 		s, err := toggle.Latest(ctx, "123")
