@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 type Sensor struct {
@@ -49,8 +49,9 @@ func (l Location) asPath() string {
 func (s Sensor) asItem() sensorItem {
 	return sensorItem{
 		City:     s.City,
-		ID:       "SENSOR#" + s.ID,
+		PK:       "SENSOR#" + s.ID,
 		SK:       "SENSORINFO",
+		ID:       s.ID,
 		Building: s.Building,
 		Floor:    s.Floor,
 		Room:     s.Room,
@@ -58,8 +59,9 @@ func (s Sensor) asItem() sensorItem {
 }
 
 type sensorItem struct {
-	ID string `dynamodbav:"pk"`
+	PK string `dynamodbav:"pk"`
 	SK string `dynamodbav:"sk"`
+	ID string `dynamodbav:"id"`
 
 	City     string `dynamodbav:"city"`
 	Building string `dynamodbav:"building"`
@@ -83,7 +85,7 @@ func (r Reading) asItem() readingItem {
 
 func (si sensorItem) asSensor() Sensor {
 	return Sensor{
-		ID:       strings.Split(si.ID, "#")[1],
+		ID:       si.ID,
 		City:     si.City,
 		Building: si.Building,
 		Floor:    si.Floor,
@@ -103,7 +105,7 @@ func (ri readingItem) asReading() Reading {
 	}
 }
 
-func NewManager(db dynamodbiface.DynamoDBAPI, table string) *sensorManager {
+func NewManager(db *dynamodb.Client, table string) *sensorManager {
 	return &sensorManager{db: db, table: table}
 }
 
@@ -113,12 +115,12 @@ type SensorsManager interface {
 }
 
 type sensorManager struct {
-	db    dynamodbiface.DynamoDBAPI
+	db    *dynamodb.Client
 	table string
 }
 
 func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
-	attrs, err := dynamodbattribute.MarshalMap(sensor.asItem())
+	attrs, err := attributevalue.MarshalMap(sensor.asItem())
 	if err != nil {
 		return err
 	}
@@ -127,10 +129,10 @@ func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
 		return err
 	}
 
-	_, err = s.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: []*dynamodb.TransactWriteItem{
+	_, err = s.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
 			{
-				Put: &dynamodb.Put{
+				Put: &types.Put{
 					ConditionExpression:       expr.Condition(),
 					ExpressionAttributeNames:  expr.Names(),
 					ExpressionAttributeValues: expr.Values(),
@@ -140,11 +142,11 @@ func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
 				},
 			},
 			{
-				Put: &dynamodb.Put{
-					Item: map[string]*dynamodb.AttributeValue{
-						"pk": {S: aws.String("CITY#" + sensor.City)},
-						"sk": {S: aws.String(fmt.Sprintf("LOCATION#%s#%s#%s", sensor.Building, sensor.Floor, sensor.Room))},
-						"id": {S: aws.String(sensor.ID)},
+				Put: &types.Put{
+					Item: map[string]types.AttributeValue{
+						"pk": &types.AttributeValueMemberS{Value: "CITY#" + sensor.City},
+						"sk": &types.AttributeValueMemberS{Value: fmt.Sprintf("LOCATION#%s#%s#%s", sensor.Building, sensor.Floor, sensor.Room)},
+						"id": &types.AttributeValueMemberS{Value: sensor.ID},
 					},
 					TableName: aws.String(s.table),
 				},
@@ -152,8 +154,8 @@ func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
 		},
 	})
 	if err != nil {
-		_, ok := err.(*dynamodb.TransactionCanceledException)
-		if ok {
+		var transactionCanelled *types.TransactionCanceledException
+		if errors.As(err, &transactionCanelled) {
 			return errors.New("already registered")
 		}
 		return err
@@ -162,10 +164,10 @@ func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
 }
 
 func (s *sensorManager) Get(ctx context.Context, id string) (Sensor, error) {
-	out, err := s.db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"pk": {S: aws.String("SENSOR#" + id)},
-			"sk": {S: aws.String("SENSORINFO")},
+	out, err := s.db.GetItem(ctx, &dynamodb.GetItemInput{
+		Key: map[string]types.AttributeValue{
+			"pk": &types.AttributeValueMemberS{Value: "SENSOR#" + id},
+			"sk": &types.AttributeValueMemberS{Value: "SENSORINFO"},
 		},
 		TableName: aws.String(s.table),
 	})
@@ -174,7 +176,7 @@ func (s *sensorManager) Get(ctx context.Context, id string) (Sensor, error) {
 	}
 
 	var si sensorItem
-	err = dynamodbattribute.UnmarshalMap(out.Item, &si)
+	err = attributevalue.UnmarshalMap(out.Item, &si)
 	if err != nil {
 		return Sensor{}, err
 	}
@@ -182,18 +184,18 @@ func (s *sensorManager) Get(ctx context.Context, id string) (Sensor, error) {
 }
 
 func (s *sensorManager) SaveReading(ctx context.Context, reading Reading) error {
-	attrs, err := dynamodbattribute.MarshalMap(reading.asItem())
+	attrs, err := attributevalue.MarshalMap(reading.asItem())
 	if err != nil {
 		return err
 	}
-	_, err = s.db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+	_, err = s.db.PutItem(ctx, &dynamodb.PutItemInput{
 		Item:      attrs,
 		TableName: aws.String(s.table),
 	})
 	return err
 }
 
-func (s *sensorManager) LatestReadings(ctx context.Context, sensorID string, last int64) (Sensor, []Reading, error) {
+func (s *sensorManager) LatestReadings(ctx context.Context, sensorID string, last int32) (Sensor, []Reading, error) {
 	expr, err := expression.NewBuilder().WithKeyCondition(expression.KeyAnd(
 		expression.KeyEqual(expression.Key("pk"), expression.Value("SENSOR#"+sensorID)),
 		expression.KeyLessThanEqual(expression.Key("sk"), expression.Value("SENSORINFO")),
@@ -202,11 +204,11 @@ func (s *sensorManager) LatestReadings(ctx context.Context, sensorID string, las
 		return Sensor{}, nil, err
 	}
 
-	out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
+	out, err := s.db.Query(ctx, &dynamodb.QueryInput{
 		ExpressionAttributeValues: expr.Values(),
 		ExpressionAttributeNames:  expr.Names(),
 		KeyConditionExpression:    expr.KeyCondition(),
-		Limit:                     aws.Int64(last + 1),
+		Limit:                     aws.Int32(last + 1),
 		ScanIndexForward:          aws.Bool(false),
 		TableName:                 aws.String(s.table),
 	})
@@ -215,10 +217,10 @@ func (s *sensorManager) LatestReadings(ctx context.Context, sensorID string, las
 	}
 
 	var si sensorItem
-	err = dynamodbattribute.UnmarshalMap(out.Items[0], &si)
+	err = attributevalue.UnmarshalMap(out.Items[0], &si)
 
 	var ri []readingItem
-	err = dynamodbattribute.UnmarshalListOfMaps(out.Items[1:aws.Int64Value(out.Count)], &ri)
+	err = attributevalue.UnmarshalListOfMaps(out.Items[1:out.Count], &ri)
 
 	var readings []Reading
 	for _, r := range ri {
@@ -236,7 +238,7 @@ func (s *sensorManager) GetSensors(ctx context.Context, location Location) ([]st
 		return nil, err
 	}
 
-	out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
+	out, err := s.db.Query(ctx, &dynamodb.QueryInput{
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		KeyConditionExpression:    expr.KeyCondition(),
@@ -246,8 +248,10 @@ func (s *sensorManager) GetSensors(ctx context.Context, location Location) ([]st
 		return nil, err
 	}
 	var ids []string
-	for _, i := range out.Items {
-		ids = append(ids, aws.StringValue(i["id"].S))
+	for _, item := range out.Items {
+		var si sensorItem
+		attributevalue.UnmarshalMap(item, &si)
+		ids = append(ids, si.ID)
 	}
 	return ids, nil
 }
