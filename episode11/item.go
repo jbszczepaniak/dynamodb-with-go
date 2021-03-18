@@ -1,13 +1,12 @@
 package episode12
 
 type Key struct {
-	PK string `json:"pk"`
-	SK string `json:"sk"`
+	PK string `dynamodbav:"pk"`
+	SK string `dynamodbav:"sk"`
 }
 
 type Item struct {
 	Key
-	A string `json:"a"`
-	B string `json:"b"`
+	A string `dynamodbav:"a"`
+	B string `dynamodbav:"b"`
 }
-
