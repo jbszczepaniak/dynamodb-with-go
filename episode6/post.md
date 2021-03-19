@@ -34,7 +34,7 @@ Let's change `Map` function to use the transaction.
 
 ```go
 idsMapping := mapping{OldID: old, NewID: uuid.New().String()}
-attrs, err := dynamodbattribute.MarshalMap(&idsMapping)
+attrs, err := attributevalue.MarshalMap(&idsMapping)
 if err != nil {
   return "", err
 }
@@ -48,15 +48,15 @@ if err != nil {
 When I told you that only `Map` function changes I didn't mean all of it. The beginning stays exactly the same. Just to recap, we create the mapping with the old id and the new id that gets generated for us. Then we construct the condition that fails when we want to put an item that already exists.
 
 ```go
-_, err = m.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-  TransactItems: []*dynamodb.TransactWriteItem{
+_, err = m.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+  TransactItems: []types.TransactWriteItem{
     {
-      Put: &dynamodb.Put{
+      Put: &types.Put{
         ConditionExpression:                 expr.Condition(),
         ExpressionAttributeNames:            expr.Names(),
         ExpressionAttributeValues:           expr.Values(),
         Item:                                attrs,
-        ReturnValuesOnConditionCheckFailure: aws.String("ALL_OLD"),
+        ReturnValuesOnConditionCheckFailure: types.ReturnValuesOnConditionCheckFailure(types.ReturnValueAllOld),
         TableName:                           aws.String(m.table),
       },
     },
@@ -74,15 +74,19 @@ if err == nil {
 If there is no error it means that condition succeeded, hence this was first time anyone called `Map` with given legacy id, and we just return what we've put into the DynamoDB.
 
 ```go
-aerr, ok := err.(*dynamodb.TransactionCanceledException)
-if !ok {
-  return "", err
+var transactionCanelled *types.TransactionCanceledException
+if !errors.As(err, &transactionCanelled) {
+	return "", err
 }
 ```
 If there is an error we need to check its type, and if it is not `TransactionCanceledException` - something went wrong, and we don't know what it is, so we just return.
 
 ```go
-return aws.StringValue(aerr.CancellationReasons[0].Item["new_id"].S), nil
+if len(transactionCanelled.CancellationReasons[0].Item) > 0 {
+	var ret mapping
+	attributevalue.UnmarshalMap(transactionCanelled.CancellationReasons[0].Item, &ret)
+  return ret.NewID, nil
+}
 ```
 Otherwise, we get `new_id` from `CancellationReasons` and we can return that to the client without calling Dynamo again!
 

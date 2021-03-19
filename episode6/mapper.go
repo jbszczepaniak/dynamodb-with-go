@@ -44,7 +44,6 @@ func (m *Mapper) Map(ctx context.Context, old string) (string, error) {
 	}
 
 	_, err = m.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
-
 		TransactItems: []types.TransactWriteItem{
 			{
 				Put: &types.Put{
