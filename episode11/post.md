@@ -27,14 +27,14 @@ I am using `insert` helper that sets up the stage for me. We are going to begin 
 Let's compare implementations.
 
 ```go
-out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := db.Query(ctx, &dynamodb.QueryInput{
   KeyConditionExpression: aws.String("#key = :value"),
-  ExpressionAttributeNames: map[string]*string{
-    "#key": aws.String("pk"),
+  ExpressionAttributeNames: map[string]string{
+    "#key": "pk",
   },
-  ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-  	":value": {S: aws.String(pk)},
-  },
+  ExpressionAttributeValues: map[string]types.AttributeValue{
+		":value": &types.AttributeValueMemberS{Value: pk},
+	},
   TableName: aws.String(table),
 })
 ```
@@ -46,7 +46,7 @@ expr, err := expression.NewBuilder().
   WithKeyCondition(expression.KeyEqual(expression.Key("pk"), expression.Value(pk))).
   Build()
 
-out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := db.Query(ctx, &dynamodb.QueryInput{
   KeyConditionExpression:    expr.KeyCondition(),
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
@@ -109,18 +109,18 @@ It turns out that `item1` has `B` set to `bar` thus it's not updated, `item2` on
 Let's compare implementations.
 
 ```go
-out, err := db.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{
+out, err := db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
   ConditionExpression: aws.String("#b = :b"),
-  ExpressionAttributeNames: map[string]*string{
-    "#b": aws.String("b"),
-    "#a": aws.String("a"),
-  },
-  ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-    ":b": {S: aws.String(whenB)},
-    ":a": {S: aws.String(newA)},
-  },
+  ExpressionAttributeNames: map[string]string{
+			"#b": "b",
+			"#a": "a",
+	},
+  ExpressionAttributeValues: map[string]types.AttributeValue{
+			":b": &types.AttributeValueMemberS{Value: whenB},
+			":a": &types.AttributeValueMemberS{Value: newA},
+	},
   Key:              marshaledKey,
-  ReturnValues:     aws.String("ALL_NEW"),
+  ReturnValues:     types.ReturnValueAllNew,
   TableName:        aws.String(table),
   UpdateExpression: aws.String("REMOVE #b SET #a = :a"),
 })
@@ -136,13 +136,13 @@ expr, err := expression.NewBuilder().
     Remove(expression.Name("b"))).
   Build()
 
-out, err := db.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{
+out, err := db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
   ConditionExpression:       expr.Condition(),
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
   UpdateExpression:          expr.Update(),
   Key:                       marshaledKey,
-  ReturnValues:              aws.String("ALL_NEW"),
+  ReturnValues:              types.ReturnValueAllNew,
   TableName:                 aws.String(table),
 })
 ```
@@ -176,11 +176,11 @@ t.Run("v1 - put if doesn't exist", func(t *testing.T) {
 Item with PK=1 and SK=2 was already inserted to the DynamoDB, thus cannot be inserted again and test fails. For PK=10 and  SK=20 operation succeeds. Let's compare implementations.
 
 ```go
-_, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
   ConditionExpression: aws.String("attribute_not_exists(#pk)"),
-  ExpressionAttributeNames: map[string]*string{
-  	"#pk": aws.String("pk"),
-   },
+  ExpressionAttributeNames: map[string]string{
+		"#pk": "pk",
+	},
    Item:      marshaledKey,
    TableName: aws.String(table),
  })
@@ -193,7 +193,7 @@ expr, err := expression.NewBuilder().
   WithCondition(expression.AttributeNotExists(expression.Name("pk"))).
   Build()
 
-_, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
   ConditionExpression:      expr.Condition(),
   ExpressionAttributeNames: expr.Names(),
   Item:                     marshaledKey,
