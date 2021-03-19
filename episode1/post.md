@@ -64,26 +64,26 @@ file. File itself follows format of CloudFormation templates.
 after every test. You cannot have many tables with the same name in DynamoDB - we need to clean them up.
 
 ```go
-out, err := db.DescribeTableWithContext(ctx, &dynamodb.DescribeTableInput{
-    TableName: aws.String("PartitionKeyTable"),
+out, err := db.DescribeTable(ctx, &dynamodb.DescribeTableInput{
+  TableName: aws.String("PartitionKeyTable"),
 })
 assert.NoError(t, err)
-assert.Equal(t, "PartitionKeyTable", aws.StringValue(out.Table.TableName))
-assert.Equal(t, "pk", aws.StringValue(out.Table.AttributeDefinitions[0].AttributeName))
+assert.Equal(t, "PartitionKeyTable", *out.Table.TableName)
+assert.Equal(t, "pk", *out.Table.AttributeDefinitions[0].AttributeName)
 ```
 
-Next piece of the test ask DynamoDB about the table we've just created. Upon receiving the answer - we check
+Next piece of the test asks DynamoDB about the table we've just created. Upon receiving the answer - we check
 whether table name and name of the Partition Key matches specification from CloudFormation template. We will
 talk about different types of keys in following episodes of the series.
 
 ```go
 cleanup()
-
-_, err = db.DescribeTableWithContext(ctx, &dynamodb.DescribeTableInput{
+_, err = db.DescribeTable(ctx, &dynamodb.DescribeTableInput{
     TableName: aws.String("PartitionKeyTable"),
 })
-aerr, ok := err.(awserr.Error)
-assert.True(t, ok && aerr.Code() == dynamodb.ErrCodeResourceNotFoundException)
+
+var notfound *types.ResourceNotFoundException
+assert.True(t, errors.As(err, &notfound))
 ```
 
 At the end of the test we run the `cleanup()` and verify that DynamoDB doesn't anything about it anymore.
