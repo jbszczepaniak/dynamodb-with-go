@@ -76,7 +76,7 @@ func TestSingleFileFromDirectory(t *testing.T) {
   defer cleanup()
   insert(ctx, db, tableName)
 ```
-With a connection to DynamoDB in place and with the testing data inserted, we can move on to the query itself. I want to obtain a single element from the DynamoDB, thus I am going to use `GetItemWithContext`.
+With a connection to DynamoDB in place and with the testing data inserted, we can move on to the query itself. I want to obtain a single element from the DynamoDB, thus I am going to use `GetItem`.
 ```go
 out, err := db.GetItem(ctx, &dynamodb.GetItemInput{
 	Key: map[string]types.AttributeValue{
