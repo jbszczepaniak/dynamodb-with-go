@@ -5,9 +5,10 @@ import (
 	"dynamodb-with-go/pkg/dynamo"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,19 +25,19 @@ func TestPutGet(t *testing.T) {
 	defer cleanup()
 
 	order := Order{ID: "12-34", Price: 22, IsShipped: false}
-	avs, err := dynamodbattribute.MarshalMap(order)
+	avs, err := attributevalue.MarshalMap(order)
 	assert.NoError(t, err)
 
-	_, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+	_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item:      avs,
 	})
 	assert.NoError(t, err)
 
-	out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"id": {
-				S: aws.String("12-34"),
+	out, err := db.GetItem(ctx, &dynamodb.GetItemInput{
+		Key: map[string]types.AttributeValue{
+			"id": &types.AttributeValueMemberS{
+				Value: "12-34",
 			},
 		},
 		TableName: aws.String(tableName),
@@ -44,7 +45,7 @@ func TestPutGet(t *testing.T) {
 	assert.NoError(t, err)
 
 	var queried Order
-	err = dynamodbattribute.UnmarshalMap(out.Item, &queried)
+	err = attributevalue.UnmarshalMap(out.Item, &queried)
 	assert.NoError(t, err)
 	assert.Equal(t, Order{ID: "12-34", Price: 22, IsShipped: false}, queried)
 

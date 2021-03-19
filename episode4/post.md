@@ -135,7 +135,7 @@ expr, err := expression.NewBuilder().
 I need to provide the exact directory for the query. Additionally I am using `KeyGreaterThanEqual` in order to take advantage of the index. From perspective of this expression however the index is not visible. Hypothetically with table where `directory` is the Partition Key and `created_at` is the Sort Key it would be valid expression as well. The point here is that we cannot have many sort keys on the table - we need to use indices for that - but it kind of works as additional sort key and it doesn't affect expression very much.
 
 ```go
-out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := db.Query(ctx, &dynamodb.QueryInput{
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
   KeyConditionExpression:    expr.KeyCondition(),
@@ -176,14 +176,14 @@ expr, err := expression.NewBuilder().
 As the Key Condition Expression got simpler, the query itself got a little bit more complicated.
 
 ```go
-out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := db.Query(ctx, &dynamodb.QueryInput{
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
   KeyConditionExpression:    expr.KeyCondition(),
   TableName:                 aws.String(table),
   IndexName:                 aws.String("ByCreatedAt"),
   ScanIndexForward:          aws.Bool(false),
-  Limit:                     aws.Int64(1),
+  Limit:                     aws.Int32(1),
 })
 ```
 
@@ -193,7 +193,7 @@ At the end we just verify whether item we obtained is really the newest one.
 
 ```go
 var items []item
-err =  dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
+err =  attributevalue.UnmarshalListOfMaps(out.Items, &items)
 assert.Equal(t, 2020, items[0].CreatedAt.Year())
 ```
  

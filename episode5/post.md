@@ -93,21 +93,21 @@ type mapping struct {
 There is `Mapper` that holds dependencies to the DynamoDB and the `mapping` that will be an item we store in the DynamoDB. Moreover external packages need to create the `Mapper`.
 
 ```go
-func NewMapper(client dynamodbiface.DynamoDBAPI, table string) *Mapper {
+func NewMapper(client *dynamodb.Client, table string) *Mapper {
   return &Mapper{db: client, table: table}
 }
 ```
 
 ## [Solution](#solution)
 
-Now let's think of the logic of the `Map` function. If the mapping of an old id and new id already exists in Dynamo - we need to fetch it. If it doesn't, we need to generate new id and save it. At first glance we could just use the `GetItemWithContext` and if we get nothing we just use thr `PutItemWithContext` to save newly generated id. Unfortunately this approach won't work. Remember that we can receive many events about the same order. They can arrive any time and can be handled concurrently. If two threads of execution will run the `GetItemWithContext` in more or less the same time and both will figure out that there is no mapping yet, we will end up with one of the thread overriding the other threads mapping.
+Now let's think of the logic of the `Map` function. If the mapping of an old id and new id already exists in Dynamo - we need to fetch it. If it doesn't, we need to generate new id and save it. At first glance we could just use the `GetItem` and if we get nothing we just use thr `PutItem` to save newly generated id. Unfortunately this approach won't work. Remember that we can receive many events about the same order. They can arrive any time and can be handled concurrently. If two threads of execution will run the `GetItem` in more or less the same time and both will figure out that there is no mapping yet, we will end up with one of the thread overriding the other threads mapping.
 
 Let's see how can we implement that functionality that will work in the world of concurrent execution.
 
 ```go
 func (m *Mapper) Map(ctx context.Context, old string) (string, error) {
   idsMapping := mapping{OldID: old, NewID: uuid.New().String()}
-  attrs, err := dynamodbattribute.MarshalMap(&idsMapping)
+  attrs, err := attributevalue.MarshalMap(&idsMapping)
 ```
 
 At the beginning we create a mapping that has an old id and that generates new id using UUIDv4. Next thing we'll do isn't retrieving an item from Dynamo. Instead we will revert the logic. I want translate into the code the following sentence: __Put into the DynamoDB a mapping, but only if it doesn't exist yet.__ In order to do that, we need to write condition expression.
@@ -119,7 +119,7 @@ expr, err := expression.NewBuilder().
 This expression will make sure that the `PutItem` operation fails if an item with the same partition key as ours with attribute `old_item` already exists.
 
 ```go
-_, err = m.db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+_, err = m.db.PutItem(ctx, &dynamodb.PutItemInput{
   ConditionExpression:       expr.Condition(),
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
@@ -139,9 +139,9 @@ if err == nil {
 If however there is an error we need to check what type of error that is. If this error tells us that condition failed, it means that mapping already exists and we can do additional `GetItem` operation to retrieve it. If this is any other error, something went terribly wrong.
 
 ```go
-aerr, ok := err.(awserr.Error)
-if ok && aerr.Code() != dynamodbErrCodeConditionalCheckFailedException {
-  return "", err
+var conditionErr *types.ConditionalCheckFailedException
+if !errors.As(err, &conditionErr) {
+	return "", err
 }
 ``` 
 At this point we know that the `PutItem` operation failed because our conditional failed.
@@ -149,16 +149,19 @@ At this point we know that the `PutItem` operation failed because our conditiona
 This means that someone before us already mapped the legacy id to new id and we can retrieve it.
 
 ```go
-out, err := m.db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-  Key: map[string]*dynamodb.AttributeValue{
-    "old_id": {S: aws.String(old)},
-  },
-  TableName: aws.String(m.table),
+out, err := m.db.GetItem(ctx, &dynamodb.GetItemInput{
+	Key: map[string]types.AttributeValue{
+		"old_id": &types.AttributeValueMemberS{Value: old},
+	},
+	TableName: aws.String(m.table),
 })
 if err != nil {
-  return "", err
+	return "", err
 }
-return aws.StringValue(out.Item["new_id"].S), nil
+
+var ret mapping
+attributevalue.UnmarshalMap(out.Item, &ret)
+return ret.NewID, nil
 ```
 
 # [Summary](#summary)

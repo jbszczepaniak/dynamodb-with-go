@@ -148,7 +148,7 @@ As you can see in the layout, when registering we need to write two different it
 
 ```go
 func (s *sensorManager) Register(ctx context.Context, sensor Sensor) error {
-  attrs, err := dynamodbattribute.MarshalMap(sensor.asItem())
+  attrs, err := attributevalue.MarshalMap(sensor.asItem())
 ```
 
 What we are doing here is transforming a sensor into something that we can put into the DynamoDB. Before we go any further, let's talk about `Sensor` type and `asItem` method. I differentiate here two different types: `Sensor` which is the public  representation of a sensor and additional type `sensorItem` that is concerned only with how sensor is stored in the DynamoDB. This type is unexported because it is only the implementation detail.
@@ -163,8 +163,9 @@ type Sensor struct {
 }
 
 type sensorItem struct {
-  ID string `dynamodbav:"pk"`
-  SK string `dynamodbav:"sk"`
+  PK string `dynamodbav:"pk"`
+	SK string `dynamodbav:"sk"`
+	ID string `dynamodbav:"id"`
 
   City     string `dynamodbav:"city"`
   Building string `dynamodbav:"building"`
@@ -179,8 +180,9 @@ As you can see `Sensor` knows nothing about underlying implementation. The `asIt
 func (s Sensor) asItem() sensorItem {
   return sensorItem{
     City:     s.City,
-    ID:       "SENSOR#" + s.ID,
-    SK:       "SENSORINFO",
+    PK:       "SENSOR#" + s.ID,
+		SK:       "SENSORINFO",
+		ID:       s.ID,
     Building: s.Building,
     Floor:    s.Floor,
     Room:     s.Room,
@@ -197,10 +199,10 @@ expr, err := expression.NewBuilder().WithCondition(expression.AttributeNotExists
 What it says is: "I am going to move further with the operation only if DynamoDB doesn't have an item with `pk` that I want to store in this operation".
 
 ```go
-_, err = s.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-  TransactItems: []*dynamodb.TransactWriteItem{
+_, err = s.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+  TransactItems: []types.TransactWriteItem{
     {
-      Put: &dynamodb.Put{
+      Put: &types.Put{
         ConditionExpression:       expr.Condition(),
         ExpressionAttributeNames:  expr.Names(),
         ExpressionAttributeValues: expr.Values(),
@@ -210,12 +212,12 @@ _, err = s.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInp
       },
     },
     {
-      Put: &dynamodb.Put{
-        Item: map[string]*dynamodb.AttributeValue{
-            "pk": {S: aws.String("CITY#" + sensor.City)},
-            "sk": {S: aws.String(fmt.Sprintf("LOCATION#%s#%s#%s", sensor.Building, sensor.Floor, sensor.Room))},
-            "id": {S: aws.String(sensor.ID)},
-        },
+      Put: &types.Put{
+        Item: map[string]types.AttributeValue{
+						"pk": &types.AttributeValueMemberS{Value: "CITY#" + sensor.City},
+						"sk": &types.AttributeValueMemberS{Value: fmt.Sprintf("LOCATION#%s#%s#%s", sensor.Building, sensor.Floor, sensor.Room)},
+						"id": &types.AttributeValueMemberS{Value: sensor.ID},
+					},
         TableName: aws.String(s.table),
       },
     },
@@ -229,11 +231,11 @@ Let's have a look at the error handling.
 
 ```go
 if err != nil {
-  _, ok := err.(*dynamodb.TransactionCanceledException)
-  if ok {
-    return errors.New("already registered")
-  }
-  return err
+	var transactionCanelled *types.TransactionCanceledException
+	if errors.As(err, &transactionCanelled) {
+		return errors.New("already registered")
+	}
+	return err
 }
 return nil
 ```
@@ -245,9 +247,9 @@ It needs to be handled explicitly because we need to verify whether transaction 
 In order to retrieve sensor we need to use proper `SK` and `PK` which means we need to construct proper Composite Primary Key.
 
 ```go
-map[string]*dynamodb.AttributeValue{
-  "pk": {S: aws.String("SENSOR#" + id)},
-  "sk": {S: aws.String("SENSORINFO")},
+map[string]types.AttributeValue{
+	"pk": &types.AttributeValueMemberS{Value: "SENSOR#" + id},
+	"sk": &types.AttributeValueMemberS{Value: "SENSORINFO"},
 }
 ```
 The ID needs to have the prefix, and SK needs to be the constant I choose to mark a sensor. If you want to see whole implementation of `Get` method please have a look [here](./v1/sensors.go). There is nothing interesting going on there - just simple data retrieval, so I am not repeating it here.
@@ -307,11 +309,11 @@ Let's read it. Attribute `pk` is the ID prefixed with `SENSOR#`. This makes sens
 This is excerpt from the table that I showed you before but containing just Composite Primary Key. Items are sorted in ascending order by default. This means that readings are sorted from oldest to the newest, and after readings there is `SENSORINFO` because `S` comes after `R` in the alphabet. What we want to achieve is to read the data backwards starting from the item with `SENSORINFO` as `SK`. In order to read the data in this way we need to construct a query with parameter `ScanIndexForward` set to false.
 
 ```go
-out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := s.db.Query(ctx, &dynamodb.QueryInput{
   ExpressionAttributeValues: expr.Values(),
   ExpressionAttributeNames:  expr.Names(),
   KeyConditionExpression:    expr.KeyCondition(),
-  Limit:                     aws.Int64(last + 1),
+  Limit:                     aws.Int32(last + 1),
   ScanIndexForward:          aws.Bool(false),
   TableName:                 aws.String(s.table),
 })
@@ -322,10 +324,10 @@ Also, the limit is set to amount of last readings we want to retrieve increased 
 What is going on at the end of the method is proper unmarshalling items into domain objects.
 ```go
 var si sensorItem
-err = dynamodbattribute.UnmarshalMap(out.Items[0], &si)
+err = attributevalue.UnmarshalMap(out.Items[0], &si)
 
 var ri []readingItem
-err = dynamodbattribute.UnmarshalListOfMaps(out.Items[1:aws.Int64Value(out.Count)], &ri)
+err = attributevalue.UnmarshalListOfMaps(out.Items[1:out.Count], &ri)
 
 var readings []Reading
 for _, r := range ri {
@@ -355,7 +357,7 @@ expr, err := expression.NewBuilder().WithKeyCondition(expression.KeyAnd(
 After building the condition expression we need to use it in the query:
 
 ```go
-out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := s.db.Query(ctx, &dynamodb.QueryInput{
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
   KeyConditionExpression:    expr.KeyCondition(),
@@ -367,8 +369,10 @@ At the end I just prepare list of IDs that should be returned from the method.
 
 ```go
 var ids []string
-for _, i := range out.Items {
-	ids = append(ids, aws.StringValue(i["id"].S))
+for _, item := range out.Items {
+	var si sensorItem
+	attributevalue.UnmarshalMap(item, &si)
+	ids = append(ids, si.ID)
 }
 return ids, nil
 ```
@@ -410,7 +414,7 @@ As you can see `GSIPK` and `GSISK` look exactly the same as the additional `loca
 Registration itself holds exactly the same condition as before - which is to make sure that we are not introducing duplicated sensors. What changed is instead of using transactions - we use simple PUT operation.
 
 ```go
-_, err = s.db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+_, err = s.db.PutItem(ctx, &dynamodb.PutItemInput{
   ConditionExpression:       expr.Condition(),
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
@@ -433,7 +437,7 @@ expr, err := expression.NewBuilder().WithKeyCondition(expression.KeyAnd(
 ```
 It uses exactly the same mechanism as first version but instead of `pk` and `sk`, we use `gsi_pk` and `gsi_sk` when building key condition expression. What about the query? 
 ```go
-out, err := s.db.QueryWithContext(ctx, &dynamodb.QueryInput{
+out, err := s.db.Query(ctx, &dynamodb.QueryInput{
   ExpressionAttributeNames:  expr.Names(),
   ExpressionAttributeValues: expr.Values(),
   KeyConditionExpression:    expr.KeyCondition(),

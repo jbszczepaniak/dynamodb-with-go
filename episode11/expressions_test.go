@@ -5,26 +5,26 @@ import (
 	"dynamodb-with-go/pkg/dynamo"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+
 	"github.com/stretchr/testify/assert"
 )
 
-func insert(ctx context.Context, db dynamodbiface.DynamoDBAPI, table string, items ...Item) {
+func insert(ctx context.Context, db *dynamodb.Client, table string, items ...Item) {
 	for _, i := range items {
-		attrs, err := dynamodbattribute.MarshalMap(i)
+		attrs, err := attributevalue.MarshalMap(i)
 		if err != nil {
-			panic("could not marshal Item")
+			panic(err)
 		}
 
-		_, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+		_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
 			Item:      attrs,
 			TableName: aws.String(table),
 		})
 		if err != nil {
-			panic("could not marshal Item")
+			panic(err)
 		}
 	}
 }
@@ -63,7 +63,7 @@ func TestExpressions(t *testing.T) {
 		ctx := context.Background()
 		tableName := "ATable"
 		db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
-		defer cleanup()		
+		defer cleanup()
 		insert(ctx, db, tableName, item1, item2)
 
 		updated, err := UpdateAWhenBAndUnsetBV1(ctx, db, tableName, Key{PK: "1", SK: "1"}, "newA", "baz")

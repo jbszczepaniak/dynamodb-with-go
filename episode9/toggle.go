@@ -1,19 +1,19 @@
-package episode10
+package episode9
 
 import (
 	"context"
 	"errors"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
 type Toggle struct {
-	db    dynamodbiface.DynamoDBAPI
+	db    *dynamodb.Client
 	table string
 }
 
@@ -57,14 +57,13 @@ func (s Switch) asLatestItem() switchItem {
 	}
 }
 
-
-func NewToggle(db dynamodbiface.DynamoDBAPI, table string) *Toggle {
+func NewToggle(db *dynamodb.Client, table string) *Toggle {
 	return &Toggle{db: db, table: table}
 }
 
 func (t *Toggle) Save(ctx context.Context, s Switch) error {
 	item := s.asLogItem()
-	attrs, err := dynamodbattribute.MarshalMap(item)
+	attrs, err := attributevalue.MarshalMap(item)
 	if err != nil {
 		return err
 	}
@@ -79,24 +78,24 @@ func (t *Toggle) Save(ctx context.Context, s Switch) error {
 	if err != nil {
 		return err
 	}
-	_, err = t.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: []*dynamodb.TransactWriteItem{
+	_, err = t.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
 			{
-				Update: &dynamodb.Update{
-					Key: map[string]*dynamodb.AttributeValue{
-						"pk": {S: aws.String(item.PK)},
-						"sk": {S: aws.String("LATEST_SWITCH")},
+				Update: &types.Update{
+					Key: map[string]types.AttributeValue{
+						"pk": &types.AttributeValueMemberS{Value: item.PK},
+						"sk": &types.AttributeValueMemberS{Value: "LATEST_SWITCH"},
 					},
-					ExpressionAttributeNames:  expr.Names(),
-					ExpressionAttributeValues: expr.Values(),
-					ConditionExpression:       expr.Condition(),
-					TableName:                 aws.String(t.table),
-					UpdateExpression:          expr.Update(),
-					ReturnValuesOnConditionCheckFailure: aws.String("ALL_OLD"),
+					ExpressionAttributeNames:            expr.Names(),
+					ExpressionAttributeValues:           expr.Values(),
+					ConditionExpression:                 expr.Condition(),
+					TableName:                           aws.String(t.table),
+					UpdateExpression:                    expr.Update(),
+					ReturnValuesOnConditionCheckFailure: types.ReturnValuesOnConditionCheckFailure(types.ReturnValueAllOld),
 				},
 			},
 			{
-				Put: &dynamodb.Put{
+				Put: &types.Put{
 					Item:      attrs,
 					TableName: aws.String(t.table),
 				},
@@ -107,13 +106,12 @@ func (t *Toggle) Save(ctx context.Context, s Switch) error {
 	if err == nil {
 		return nil
 	}
-
-	aerr, ok := err.(*dynamodb.TransactionCanceledException)
-	if !ok {
+	var transactionCanelled *types.TransactionCanceledException
+	if !errors.As(err, &transactionCanelled) {
 		return err
 	}
 
-	if len(aerr.CancellationReasons[0].Item) > 0 {
+	if len(transactionCanelled.CancellationReasons[0].Item) > 0 {
 		return nil
 	}
 
@@ -127,12 +125,12 @@ func (t *Toggle) Save(ctx context.Context, s Switch) error {
 		return err
 	}
 
-	latestAttrs, err := dynamodbattribute.MarshalMap(s.asLatestItem())
+	latestAttrs, err := attributevalue.MarshalMap(s.asLatestItem())
 
-	_, err = t.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: []*dynamodb.TransactWriteItem{
+	_, err = t.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
 			{
-				Put: &dynamodb.Put{
+				Put: &types.Put{
 					ConditionExpression:       expr.Condition(),
 					ExpressionAttributeNames:  expr.Names(),
 					ExpressionAttributeValues: expr.Values(),
@@ -141,7 +139,7 @@ func (t *Toggle) Save(ctx context.Context, s Switch) error {
 				},
 			},
 			{
-				Put: &dynamodb.Put{
+				Put: &types.Put{
 					Item:      attrs,
 					TableName: aws.String(t.table),
 				},
@@ -151,8 +149,7 @@ func (t *Toggle) Save(ctx context.Context, s Switch) error {
 	if err == nil {
 		return nil
 	}
-	_, ok = err.(*dynamodb.TransactionCanceledException)
-	if !ok {
+	if !errors.As(err, &transactionCanelled) {
 		return err
 	}
 
@@ -160,10 +157,10 @@ func (t *Toggle) Save(ctx context.Context, s Switch) error {
 }
 
 func (t *Toggle) Latest(ctx context.Context, userID string) (Switch, error) {
-	out, err := t.db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"pk": {S: aws.String(userID)},
-			"sk": {S: aws.String("LATEST_SWITCH")},
+	out, err := t.db.GetItem(ctx, &dynamodb.GetItemInput{
+		Key: map[string]types.AttributeValue{
+			"pk": &types.AttributeValueMemberS{Value: userID},
+			"sk": &types.AttributeValueMemberS{Value: "LATEST_SWITCH"},
 		},
 		TableName: aws.String(t.table),
 	})
@@ -175,6 +172,6 @@ func (t *Toggle) Latest(ctx context.Context, userID string) (Switch, error) {
 	}
 
 	var item switchItem
-	err = dynamodbattribute.UnmarshalMap(out.Item, &item)
+	err = attributevalue.UnmarshalMap(out.Item, &item)
 	return item.asSwitch(), err
 }

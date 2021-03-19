@@ -55,11 +55,11 @@ There is no problem with zero value slice. You can save `nil` slice into DynamoD
 ```go
 t.Run("regular way", func(t *testing.T) {
   t.Skip("this test fails")
-  attrs, err := dynamodbattribute.Marshal([]string{})
+  attrs, err := attributevalue.Marshal([]string{})
   assert.NoError(t, err)
 
   var s []string
-  err = dynamodbattribute.Unmarshal(attrs, &s)
+  err = attributevalue.Unmarshal(attrs, &s)
   assert.NoError(t, err)
 
   assert.NotNil(t, s) // fails
@@ -74,26 +74,23 @@ This failing test shows exactly what is the problem. I mean the problem isn't wi
   NULL: true
 })
 ```
-This is what `dynamodbattribute.Marshal` function did to non-`nil` empty slice. It changed into `NULL`. Actually as you can see `NULL` is a `bool` field on `dynamodb.AttributeValue` type. This is just how AttributeValue represents something that is `NULL`. Let's keep that in mind.
+This is what `attributevalue.Marshal` function did to non-`nil` empty slice. It changed into `NULL`. Actually as you can see `NULL` is a `bool` field on `dynamodb.AttributeValue` type. This is just how AttributeValue represents something that is `NULL`. Let's keep that in mind.
 
-What we really want to do if we care about distinction between `nil` slice and non-`nil` empty slice is to use the custom encoder and decoder and set the `EnableEmptyCollections` option that will preserve empty list.
+What we really want to do if we care about distinction between `nil` slice and non-`nil` empty slice is to use the custom encoder and decoder and set the `NullEmptySets` option that will preserve empty list.
 
 ```go
 t.Run("new way", func(t *testing.T) {
-  e := dynamodbattribute.NewEncoder(func(e *dynamodbattribute.Encoder) {
-  	e.EnableEmptyCollections = true
-  })
-  attrs, err := e.Encode([]string{})
-  assert.NoError(t, err)
-       
-  var s []string
-  d := dynamodbattribute.NewDecoder(func(d *dynamodbattribute.Decoder) {
-  	d.EnableEmptyCollections = true
-  })
-  err = d.Decode(attrs, &s)
-  assert.NoError(t, err)
-  assert.NotNil(t, s)
-  assert.Len(t, s, 0)
+	e := attributevalue.NewEncoder(func(opt *attributevalue.EncoderOptions) {
+		opt.NullEmptySets = true
+	})
+	attrs, err := e.Encode([]string{})
+	assert.NoError(t, err)
+
+	var s []string
+	err = attributevalue.Unmarshal(attrs, &s)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	assert.Len(t, s, 0)
 })
 ```
 
@@ -105,7 +102,7 @@ This test passes. Let's see how `attrs` variable looks like.
 ```
 This is truly empty list. This is what we want! Do we have a success? Not yet...
 
-The `dynamodbattribute` package is used to transform application types into attribute values - which are types that the DynamoDB understands. It is used when performing for example `PutItem` operation or `GetItem` operation.
+The `attributevalue` package is used to transform application types into attribute values - which are types that the DynamoDB understands. It is used when performing for example `PutItem` operation or `GetItem` operation.
 
 But we have also `UpdateItem` operations and typically we construct them with expression API. Let's look at the example.
 ```go

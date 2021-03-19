@@ -31,10 +31,10 @@ func TestInsertingOrderFailsBecauseUserDoesNotExist(t *testing.T) {
   db, cleanup := dynamo.SetupTable(t, ctx, tableName, "./template.yml")
   defer cleanup()
 
-  _, err := db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+  _, err := db.PutItem(ctx, &dynamodb.PutItemInput{
     Item: map[string]*dynamodb.AttributeValue{
-      "pk": dynamo.StringAttr("1234"),
-      "sk": dynamo.StringAttr("ORDER#2017-03-04 00:00:00 +0000 UTC"),
+      "pk": &types.AttributeValueMemberS{Value:" 1234"},
+      "sk": &types.AttributeValueMemberS{Value: "ORDER#2017-03-04 00:00:00 +0000 UTC"},
     },
     TableName: aws.String(tableName),
   })
@@ -59,14 +59,14 @@ func TestInsertingOrderFailsBecauseUserDoesNotExist(t *testing.T) {
     Build()
   assert.NoError(t, err)
 
-  _, err = db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-    TransactItems: []*dynamodb.TransactWriteItem{
+  _, err = db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
       {
-        Put: &dynamodb.Put{
-          Item: map[string]*dynamodb.AttributeValue{
-            "pk": {S: aws.String("1234")},
-            "sk": {S: aws.String("ORDER#2017-03-04 00:00:00 +0000 UTC")},
-          },
+        Put: &types.Put{
+          Item: map[string]types.AttributeValue{
+						"pk": &types.AttributeValueMemberS{Value: "1234"},
+						"sk": &types.AttributeValueMemberS{Value: "ORDER#2017-03-04 00:00:00 +0000 UTC"},
+					},
           TableName: aws.String(tableName),
         },
       },
@@ -76,10 +76,10 @@ func TestInsertingOrderFailsBecauseUserDoesNotExist(t *testing.T) {
           ExpressionAttributeValues: expr.Values(),
           ExpressionAttributeNames:  expr.Names(),
           UpdateExpression:          expr.Update(),
-          Key: map[string]*dynamodb.AttributeValue{
-            "pk": {S: aws.String("1234")},
-            "sk": {S: aws.String("USERINFO")},
-          },
+          Key: map[string]types.AttributeValue{
+						"pk": &types.AttributeValueMemberS{Value: "1234"},
+						"sk": &types.AttributeValueMemberS{Value: "USERINFO"},
+					},  
           TableName: aws.String(tableName),
         },
       },
@@ -87,8 +87,8 @@ func TestInsertingOrderFailsBecauseUserDoesNotExist(t *testing.T) {
   })
 
   assert.Error(t, err)
-  _, ok := err.(*dynamodb.TransactionCanceledException)
-  assert.True(t, ok)
+	var transactionCancelled *types.TransactionCanceledException
+	assert.True(t, errors.As(err, &transactionCancelled))
 }
 ```
 

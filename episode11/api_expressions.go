@@ -5,15 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-func GetItemCollectionV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, table, pk string) ([]Item, error) {
+func GetItemCollectionV2(ctx context.Context, db *dynamodb.Client, table, pk string) ([]Item, error) {
 	expr, err := expression.NewBuilder().
 		WithKeyCondition(expression.KeyEqual(expression.Key("pk"), expression.Value(pk))).
 		Build()
@@ -21,7 +20,7 @@ func GetItemCollectionV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, tabl
 	if err != nil {
 		return nil, err
 	}
-	out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
+	out, err := db.Query(ctx, &dynamodb.QueryInput{
 		KeyConditionExpression:    expr.KeyCondition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -32,15 +31,15 @@ func GetItemCollectionV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, tabl
 	}
 
 	var items []Item
-	err = dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
+	err = attributevalue.UnmarshalListOfMaps(out.Items, &items)
 	if err != nil {
 		return nil, err
 	}
 	return items, nil
 }
 
-func UpdateAWhenBAndUnsetBV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, table string, k Key, newA, whenB string) (Item, error) {
-	marshaledKey, err := dynamodbattribute.MarshalMap(k)
+func UpdateAWhenBAndUnsetBV2(ctx context.Context, db *dynamodb.Client, table string, k Key, newA, whenB string) (Item, error) {
+	marshaledKey, err := attributevalue.MarshalMap(k)
 	if err != nil {
 		return Item{}, err
 	}
@@ -54,32 +53,32 @@ func UpdateAWhenBAndUnsetBV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, 
 	if err != nil {
 		return Item{}, err
 	}
-	out, err := db.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{
+	out, err := db.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
 		UpdateExpression:          expr.Update(),
 		Key:                       marshaledKey,
-		ReturnValues:              aws.String("ALL_NEW"),
+		ReturnValues:              types.ReturnValueAllNew,
 		TableName:                 aws.String(table),
 	})
 	if err != nil {
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+		var conditionFailed *types.ConditionalCheckFailedException
+		if errors.As(err, &conditionFailed) {
 			return Item{}, fmt.Errorf("b is not %s, aborting update", whenB)
 		}
 		return Item{}, err
 	}
 	var i Item
-	err = dynamodbattribute.UnmarshalMap(out.Attributes, &i)
+	err = attributevalue.UnmarshalMap(out.Attributes, &i)
 	if err != nil {
 		return Item{}, err
 	}
 	return i, nil
 }
 
-func PutIfNotExistsV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, table string, k Key) error {
-	marshaledKey, err := dynamodbattribute.MarshalMap(k)
+func PutIfNotExistsV2(ctx context.Context, db *dynamodb.Client, table string, k Key) error {
+	marshaledKey, err := attributevalue.MarshalMap(k)
 	if err != nil {
 		return err
 	}
@@ -91,7 +90,7 @@ func PutIfNotExistsV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, table s
 		return err
 	}
 
-	_, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+	_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
 		ConditionExpression:      expr.Condition(),
 		ExpressionAttributeNames: expr.Names(),
 		Item:                     marshaledKey,
@@ -99,8 +98,8 @@ func PutIfNotExistsV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, table s
 	})
 
 	if err != nil {
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+		var conditionFailed *types.ConditionalCheckFailedException
+		if errors.As(err, &conditionFailed) {
 			return errors.New("Item with this Key already exists")
 		}
 		return err
@@ -108,4 +107,3 @@ func PutIfNotExistsV2(ctx context.Context, db dynamodbiface.DynamoDBAPI, table s
 
 	return nil
 }
-

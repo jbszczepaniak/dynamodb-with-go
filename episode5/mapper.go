@@ -2,24 +2,24 @@ package episode5
 
 import (
 	"context"
+	"errors"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/google/uuid"
 )
 
 // Mapper keeps Dynamo dependency.
 type Mapper struct {
-	db    dynamodbiface.DynamoDBAPI
+	db    *dynamodb.Client
 	table string
 }
 
 // NewMapper creates instance of Mapper.
-func NewMapper(client dynamodbiface.DynamoDBAPI, table string) *Mapper {
+func NewMapper(client *dynamodb.Client, table string) *Mapper {
 	return &Mapper{db: client, table: table}
 }
 
@@ -31,7 +31,7 @@ type mapping struct {
 // Map generates new ID for old ID or retrieves already created new ID.
 func (m *Mapper) Map(ctx context.Context, old string) (string, error) {
 	idsMapping := mapping{OldID: old, NewID: uuid.New().String()}
-	attrs, err := dynamodbattribute.MarshalMap(&idsMapping)
+	attrs, err := attributevalue.MarshalMap(&idsMapping)
 	if err != nil {
 		return "", err
 	}
@@ -43,7 +43,7 @@ func (m *Mapper) Map(ctx context.Context, old string) (string, error) {
 		return "", err
 	}
 
-	_, err = m.db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
+	_, err = m.db.PutItem(ctx, &dynamodb.PutItemInput{
 		ConditionExpression:       expr.Condition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),
@@ -53,19 +53,22 @@ func (m *Mapper) Map(ctx context.Context, old string) (string, error) {
 	if err == nil {
 		return idsMapping.NewID, nil
 	}
-	aerr, ok := err.(awserr.Error)
-	if ok && aerr.Code() != dynamodb.ErrCodeConditionalCheckFailedException {
+	var conditionErr *types.ConditionalCheckFailedException
+	if !errors.As(err, &conditionErr) {
 		return "", err
 	}
 
-	out, err := m.db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"old_id": {S: aws.String(old)},
+	out, err := m.db.GetItem(ctx, &dynamodb.GetItemInput{
+		Key: map[string]types.AttributeValue{
+			"old_id": &types.AttributeValueMemberS{Value: old},
 		},
 		TableName: aws.String(m.table),
 	})
 	if err != nil {
 		return "", err
 	}
-	return aws.StringValue(out.Item["new_id"].S), nil
+
+	var ret mapping
+	attributevalue.UnmarshalMap(out.Item, &ret)
+	return ret.NewID, nil
 }
