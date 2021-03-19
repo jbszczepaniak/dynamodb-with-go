@@ -78,24 +78,24 @@ func TestSingleFileFromDirectory(t *testing.T) {
 ```
 With a connection to DynamoDB in place and with the testing data inserted, we can move on to the query itself. I want to obtain a single element from the DynamoDB, thus I am going to use `GetItemWithContext`.
 ```go
-out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-  Key: map[string]*dynamodb.AttributeValue{
-    "directory": {S: aws.String("finances")},
-    "filename":  {S: aws.String("report2020.pdf")},
-  },
-  TableName: aws.String(table),
+out, err := db.GetItem(ctx, &dynamodb.GetItemInput{
+	Key: map[string]types.AttributeValue{
+		"directory": &types.AttributeValueMemberS{Value: "finances"},
+		"filename":  &types.AttributeValueMemberS{Value: "report2020.pdf"},
+	},
+  TableName: aws.String(tableName),
 })
 ```
 Note that `Key` consists of two elements: `directory` (Partition Key) and `filename` (Sort Key). Let's make sure that output of the query is really what we think it is:
 ```go
 var i item
-err = dynamodbattribute.UnmarshalMap(out.Item, &i)
+err = attributevalue.UnmarshalMap(out.Item, &i)
 assert.NoError(t, err)
 assert.Equal(t, item{Directory: "finances", Filename: "report2020.pdf", Size: "2MB"}, i)
 ```
 ## [Query #2: Give me whole directory](#query2)
 
-In this query we cannot use `GetItemWithContext` because we want to obtain many items from the DynamoDB. Also when we get a single item we need to know whole composite primary key. Here we want to get all the files from the directory so we know only the Partition Key. Solution to that problem is `QueryWithContext` method with __Key Condition Expression__.
+In this query we cannot use `GetItem` because we want to obtain many items from the DynamoDB. Also when we get a single item we need to know whole composite primary key. Here we want to get all the files from the directory so we know only the Partition Key. Solution to that problem is `Query` method with __Key Condition Expression__.
 ```go
 expr, err := expression.NewBuilder().
   WithKeyCondition(
@@ -103,11 +103,11 @@ expr, err := expression.NewBuilder().
   Build()
 assert.NoError(t, err)
 
-out, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{
-  ExpressionAttributeNames:  expr.Names(),
-  ExpressionAttributeValues: expr.Values(),
-  KeyConditionExpression:    expr.KeyCondition(),
-  TableName:                 aws.String(table),
+out, err := db.Query(ctx, &dynamodb.QueryInput{
+	ExpressionAttributeNames:  expr.Names(),
+	ExpressionAttributeValues: expr.Values(),
+	KeyConditionExpression:    expr.KeyCondition(),
+	TableName:                 aws.String(tableName),
 })
 assert.NoError(t, err)
 assert.Len(t, out.Items, 4)
@@ -141,7 +141,7 @@ We have two conditions that we combine with the AND clause. The first one specif
 
 ```go
 var items []item
-err = dynamodbattribute.UnmarshalListOfMaps(out.Items, &items)
+err = attributevalue.UnmarshalListOfMaps(out.Items, &items)
 assert.NoError(t, err)
 if assert.Len(t, items, 2) {
   assert.Equal(t, "report2017.pdf", items[0].Filename)
@@ -149,7 +149,7 @@ if assert.Len(t, items, 2) {
 }
 ```
 
-In the first query we used `dynamodbattribute.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew we will get single item. Here we know that there will be one item or more - thus we use `dynamodbattribute.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
+In the first query we used `attributevalue.UnmarshalMap` for unmarshaling single DynamoDB item into the struct. We knew we will get single item. Here we know that there will be one item or more - thus we use `attributevalue.UnmarshalListOfMaps` - which unmarshals the query results into the slice of items.
 
 Note that I assert that first item is the report from 2017 and second one is from 2018. How am I so sure that items will go back from the DynamoDB in that order? If not told otherwise - DynamoDB will scan items from given Partition in ascending order. Since 2017 comes before 2018 - I know that first item should be from 2017.
 
