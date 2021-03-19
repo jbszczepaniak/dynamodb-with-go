@@ -111,7 +111,7 @@ type switchItem struct {
 Since we are speaking about marshaling we need to convert our data into the format that the DynamoDB understands.
 
 ```go
-attrs, err := dynamodbattribute.MarshalMap(item)
+attrs, err := attributevalue.MarshalMap(item)
 ``` 
 
 Next thing is the most complicated expression we've ever seen in the DynamoDB with Go because it combines condition and update.
@@ -129,24 +129,24 @@ What is says is
 > Please update `created_at` field and `state` field but only if item we are inserting is younger than what is in the DynamoDB.
 
 ```go
-_, err = t.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-  TransactItems: []*dynamodb.TransactWriteItem{
+_, err = t.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+	TransactItems: []types.TransactWriteItem{
     {
-      Update: &dynamodb.Update{
-        Key: map[string]*dynamodb.AttributeValue{
-            "pk": {S: aws.String(item.PK)},
-            "sk": {S: aws.String("LATEST_SWITCH")},
-        },
+      Update: &types.Update{
+        Key: map[string]types.AttributeValue{
+						"pk": &types.AttributeValueMemberS{Value: item.PK},
+						"sk": &types.AttributeValueMemberS{Value: "LATEST_SWITCH"},
+				},
         ExpressionAttributeNames:  expr.Names(),
         ExpressionAttributeValues: expr.Values(),
         ConditionExpression:       expr.Condition(),
         TableName:                 aws.String(t.table),
         UpdateExpression:          expr.Update(),
-        ReturnValuesOnConditionCheckFailure: aws.String("ALL_OLD"),
+        ReturnValuesOnConditionCheckFailure: types.ReturnValuesOnConditionCheckFailure(types.ReturnValueAllOld),
       },
     },
     {
-      Put: &dynamodb.Put{
+      Put: &types.Put{
         Item:      attrs,
         TableName: aws.String(t.table),
       },
@@ -173,21 +173,21 @@ if err == nil {
 We might not have an error at all - that means that we've just appended new log entry with an update to the latest state.
 
 ```go
-aerr, ok := err.(*dynamodb.TransactionCanceledException)
-if !ok {
-  return err
+var transactionCanelled *types.TransactionCanceledException
+if !errors.As(err, &transactionCanelled) {
+	return err
 }
 ```
 
 We might have an error that wasn't anticipated. In that case - application blows up, and we have an incident to handle.
 
 ```go
-if len(aerr.CancellationReasons[0].Item) > 0 {
-  return nil
+if len(transactionCanelled.CancellationReasons[0].Item) > 0 {
+	return nil
 }
 ```
 
-Based on that condition we can reason that we received an out of order event. Why? Because we filled `ReturnValuesOnConditionCheckFailure` parameter with `ALL_OLD` value. This means that when transaction fails the value  of `aerr.CancellationReasons[0].Item` will be an item that was in the DynamoDB before our action. If that value is not empty this means that there is an item in the DynamoDB for given Partition Key. Since we have two reasons for transaction failure we can - by elimination - conclude that we'ce received an out of order event.
+Based on that condition we can reason that we received an out of order event. Why? Because we filled `ReturnValuesOnConditionCheckFailure` parameter with `ALL_OLD` value. This means that when transaction fails the value  of `transactionCanelled.CancellationReasons[0].Item` will be an item that was in the DynamoDB before our action. If that value is not empty this means that there is an item in the DynamoDB for given Partition Key. Since we have two reasons for transaction failure we can - by elimination - conclude that we'ce received an out of order event.
  
 Out of order event isn't saved into the DynamoDB so we exit immediately. Now we need to handle the situation when transaction failed because it's the first time DynamoDB sees such Partition Key.
 
@@ -205,16 +205,16 @@ This condition is responsible for making sure that the DynamoDB didn't save `LAT
 We also need to create an item representing the latest state of the toggle.
 
 ```go
-latestAttrs, err := dynamodbattribute.MarshalMap(s.asLatestItem())
+latestAttrs, err := attributevalue.MarshalMap(s.asLatestItem())
 ```
 
 It's similar to `asLogItem` but it sets `sk` to `LATEST_SWITCH`. Next thing we do is yet another transaction.
 
 ```go
-_, err = t.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{
-  TransactItems: []*dynamodb.TransactWriteItem{
+_, err = t.db.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+	TransactItems: []types.TransactWriteItem{
     {
-      Put: &dynamodb.Put{
+      Put: &types.Put{
         ConditionExpression:       expr.Condition(),
         ExpressionAttributeNames:  expr.Names(),
         ExpressionAttributeValues: expr.Values(),
@@ -223,7 +223,7 @@ _, err = t.db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInp
       },
     },
     {
-      Put: &dynamodb.Put{
+      Put: &types.Put{
         Item:      attrs,
         TableName: aws.String(t.table),
       },
@@ -241,9 +241,8 @@ if err == nil {
 ```
 We might have no error - condition passed and both items were saved. This DynamoDB call can fail as well.
 ```go
-_, ok = err.(*dynamodb.TransactionCanceledException)
-if !ok {
-  return err
+if !errors.As(err, &transactionCanelled) {
+	return err
 }
 ```
 If it does - and the reason isn't transaction failure - something wrong happened, and we return with an error. If however transaction failed - first switch for the toggle was saved but not by us. What we can do is to call this whole function again. It is completely save and won't create an infinite loop because the `Switch` is either older or younger than what is saved in the Dynamo. If it is younger it will be saved. If it's older - it will be rejected.
@@ -255,23 +254,23 @@ return t.Save(ctx, s)
 Very often - when writing is complex - reading must be trivial. This is the case in here!
 ```go
 func (t *Toggle) Latest(ctx context.Context, userID string) (Switch, error) {
-out, err := t.db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-  Key: map[string]*dynamodb.AttributeValue{
-      "pk": {S: aws.String(userID)},
-      "sk": {S: aws.String("LATEST_SWITCH")},
-  },
-  TableName: aws.String(t.table),
-})
-if err != nil {
-  return Switch{}, err
-}
-if len(out.Item) == 0 {
-  return Switch{}, errors.New("not found")
-}
+  out, err := t.db.GetItem(ctx, &dynamodb.GetItemInput{
+    Key: map[string]types.AttributeValue{
+			"pk": &types.AttributeValueMemberS{Value: userID},
+			"sk": &types.AttributeValueMemberS{Value: "LATEST_SWITCH"},
+	  },
+    TableName: aws.String(t.table),
+  })
+  if err != nil {
+    return Switch{}, err
+  }
+  if len(out.Item) == 0 {
+    return Switch{}, errors.New("not found")
+ }
 
-var item switchItem
-err = dynamodbattribute.UnmarshalMap(out.Item, &item)
-return item.asSwitch(), err
+  var item switchItem
+  err = attributevalue.UnmarshalMap(out.Item, &item)
+  return item.asSwitch(), err
 }
 ```
 
