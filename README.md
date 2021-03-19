@@ -1,9 +1,11 @@
 # DynamoDB with Go
 
-:warning:
+:warning: :warning: :warning:
+
 DynamoDB with Go was updated to use new (v2) version of AWS SDK for Go. If you want to play with older version
 just checkout branch `go-sdk-v1`.
-:warning:
+
+:warning: :warning: :warning:
 
 Series of posts on how to use DynamoDB with Go SDK.
 
