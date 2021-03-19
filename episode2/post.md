@@ -67,22 +67,22 @@ Now we need to prepare data before inserting it into DynamoDB.
 
 ```go
 order := Order{ID: "12-34", Price: 22, IsShipped: false}
-avs, err := dynamodbattribute.MarshalMap(order)
+avs, err := attributevalue.MarshalMap(order)
 assert.NoError(t, err)
 ```
 
 Thanks to `dynamodbav` struct tags on the `Order`, `MarshalMap` function knows how to marshal struct into structure that DynamoDB understands. We are finally ready to insert something into DB.
 
 ```go
-_, err = db.PutItemWithContext(ctx, &dynamodb.PutItemInput{
-    TableName: aws.String(table),
-    Item:      avs,
+_, err = db.PutItem(ctx, &dynamodb.PutItemInput{
+	TableName: aws.String(tableName),
+	Item:      avs,
 })
 assert.NoError(t, err)
 ```
 
-We are using DynamoDB __PutItem__ operation which creates new item or replaces old item with the same key. First parameter is `context` which is used for cancellation. For every call to the AWS, SDK gives you two functions, one with context and one without it. Apart from `PutItemWithContext`, there is also `PutItem` function. I'll use context in each call as I feel that this is the way to do things in production, and it should be your default choice when working with SDK. Second argument is `dynamodb.PutItemInput`. For every call to the AWS that SDK supports, you may expect this pattern:
-- `APICallWithContext` - function to call
+We are using DynamoDB __PutItem__ operation which creates new item or replaces old item with the same key. First parameter is `context` which is used for cancellation. Second argument is `dynamodb.PutItemInput`. For every call to the AWS that SDK supports, you may expect this pattern:
+- `APICall` - function to call
 - `APICallInput` - argument for the function
 - `APICallOutput` - return value of the function
 
@@ -93,25 +93,25 @@ Notice that first return value from the SDK call is being ignored. We don't real
 ## [Get order back from DynamoDB](#get-order-back)
 
 ```go
-out, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{
-  Key: map[string]*dynamodb.AttributeValue{
-    "id": {
-      S: aws.String("12-34"),
-    },
-  },
-  TableName: aws.String(table),
+out, err := db.GetItem(ctx, &dynamodb.GetItemInput{
+	Key: map[string]types.AttributeValue{
+		"id": &types.AttributeValueMemberS{
+			Value: "12-34",
+		},
+	},
+	TableName: aws.String(tableName),
 })
 assert.NoError(t, err)
 ```
 
-Many pieces here are similar. There is `APICallWithContext`, and `APICallInput` elements that match pattern I showed you before. `TableName` parameter in the input is exactly the same.
-Since we want to get item, we need to provide the key. This is where I find SDK  cumbersome. Constructing keys looks a little bit off, but it is what it is. It is a map because key can be more complicated than what we have here. Remember how we defined `id` in the `template.yml`? It was of type "S" which is string. We need to specify that in the key as well when talking with the DynamoDB.
+Many pieces here are similar. There is `APICall`, and `APICallInput` elements that match pattern I showed you before. `TableName` parameter in the input is exactly the same.
+Since we want to get item, we need to provide the key. This is where I find SDK cumbersome. Constructing keys looks a little bit off, but it is what it is. It is a map because key can be more complicated than what we have here. Remember how we defined `id` in the `template.yml`? It was of type "S" which is string. We need to specify that in the key as well when talking with the DynamoDB.
 
 Last steps we need to perform are deserializing whatever we got from DynamoDB, and just to be sure - comparing results with what was put in.
 
 ```go
 var queried Order
-err = dynamodbattribute.UnmarshalMap(out.Item, &queried)
+err = attributevalue.UnmarshalMap(out.Item, &queried)
 assert.NoError(t, err)
 assert.Equal(t, Order{ID: "12-34", Price: 22, IsShipped: false}, queried)
 ```
